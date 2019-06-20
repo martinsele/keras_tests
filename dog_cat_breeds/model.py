@@ -12,7 +12,7 @@ from keras.optimizers import SGD
 class ModelPrep:
 
     @staticmethod
-    def create_train_model(num_outputs, used_model=InceptionV3, optimizer='rmsprop'):
+    def create_train_model(num_outputs, used_model=InceptionV3, optimizer='rmsprop', input_shape=(299, 299, 3)):
         """
         Create model for fine-tuning
         :param used_model: e.g. Keras' InceptionV3
@@ -21,7 +21,7 @@ class ModelPrep:
         :return: model without top layer
         """
         # create the base pre-trained model
-        base_model = used_model(weights='imagenet', include_top=False)
+        base_model = used_model(weights='imagenet', include_top=False, input_shape=input_shape)
 
         # add a global spatial average pooling layer
         x = base_model.output
