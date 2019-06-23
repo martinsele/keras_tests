@@ -38,8 +38,8 @@ MODEL_OUT = os.path.join(DATA_DIR, "models")
 TRAIN_SPEC = os.path.join(INFO_DIR, "trainval.txt")
 TEST_SPEC = os.path.join(INFO_DIR, "test.txt")
 MODEL_FILE = os.path.join(MODEL_OUT, "model.{epoch:02d}-{val_loss:.2f}.hdf5")
-IMG_HEIGHT = 400
-IMG_WIDTH = 400
+IMG_HEIGHT = 300
+IMG_WIDTH = 300
 BATCH_SIZE = 64
 EPOCHS = 15
 
@@ -73,7 +73,8 @@ def get_callbacks():
 
 def train_base(num_classes=NUM_CLASSES):
     print("Creating first model...")
-    model = ModelPrep.create_train_model(num_classes, used_model=Xception, optimizer='rmsprop')
+    model = ModelPrep.create_train_model(num_classes, used_model=Xception, 
+                                         optimizer='rmsprop', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
 
     train_generator, validation_generator = get_train_generators()
     checkpoint_callback, early_stop_callback = get_callbacks()
@@ -106,7 +107,8 @@ def train_finetune(model):
 
 def cntn_training(model_weights_file, fine_tune=False, num_classes=NUM_CLASSES):
     print("Creating base model...")
-    model = ModelPrep.create_train_model(num_classes, used_model=Xception, optimizer='rmsprop')
+    model = ModelPrep.create_train_model(num_classes, used_model=Xception, 
+                                         optimizer='rmsprop', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
     
     if fine_tune:
         print("Preparing model for fine tuning ...")
@@ -115,6 +117,7 @@ def cntn_training(model_weights_file, fine_tune=False, num_classes=NUM_CLASSES):
     
     # load weights
     print("loading weights")
+    #TODO:
     
     
 if __name__ == "__main__":
