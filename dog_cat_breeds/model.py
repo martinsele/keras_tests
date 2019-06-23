@@ -28,6 +28,8 @@ class ModelPrep:
         x = GlobalAveragePooling2D()(x)
         # let's add a fully-connected layer
         x = Dense(1024, activation='relu')(x)
+        #TODO: - add dropout?
+        
         # and a logistic layer
         predictions = Dense(num_outputs, activation='softmax')(x)
 

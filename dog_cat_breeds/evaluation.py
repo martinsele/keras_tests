@@ -1,5 +1,6 @@
 from keras.applications.inception_v3 import InceptionV3
 from keras.applications.xception import Xception
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.preprocessing import image
 from keras.models import Model
 from keras.layers import Dense, GlobalAveragePooling2D
@@ -11,12 +12,12 @@ from scipy.ndimage import imread
 from scipy.io import loadmat
 from scipy.misc import imresize
 
-import os.path
-import collections
-from shutil import copyfile
+import matplotlib.pyplot as plt # use as plt.imshow()
 
-from  dog_cat_breeds.model import ModelPrep
-from  dog_cat_breeds.dataloading import DataLoader
+import os.path
+
+from  model import ModelPrep
+from  dataloading import DataLoader, DataPrep
 
 # read data
 # build model
@@ -25,49 +26,102 @@ from  dog_cat_breeds.dataloading import DataLoader
 # save model
 # prepare for inference
 
-NUM_CLASSES = 50    # TODO - modify according to real data
-DATA_DIR = "../../data/dogs-cats/images"
-INFO_DIR = "../../data/dogs-cats/annotations/"
+NUM_CLASSES = 37    # TODO - modify according to real data
+# DATA_DIR = "../../data/dogs-cats"
+DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
+IMG_DIR = os.path.join(DATA_DIR, "images")
+INFO_DIR = os.path.join(DATA_DIR, "annotations") 
+TRAIN_OUT = os.path.join(DATA_DIR, "train")
+TEST_OUT = os.path.join(DATA_DIR, "test")
+MODEL_OUT = os.path.join(DATA_DIR, "models")
+
 TRAIN_SPEC = os.path.join(INFO_DIR, "trainval.txt")
 TEST_SPEC = os.path.join(INFO_DIR, "test.txt")
-IMG_HEIGHT = 64
-IMG_WIDTH = 64
+MODEL_FILE = os.path.join(MODEL_OUT, "model.{epoch:02d}-{val_loss:.2f}.hdf5")
+IMG_HEIGHT = 400
+IMG_WIDTH = 400
 BATCH_SIZE = 64
 EPOCHS = 15
 
 
-# read training data and save them to dir train/class_name for ImageDataGenerator.flow_from_directory()
-train_dict = collections.defaultdict(list) # key: class_name, value: list
-with open(TRAIN_SPEC, encoding="utf-8") as file:
-    for line in file:
-        pass
 
-
-def train():
-    DataLoader.load_imgs_dog_cat(DATA_DIR,im_size=(150, 150))
-
+def get_train_generators():
     train_datagen = ImageDataGenerator(rescale=1. / 255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
+    test_datagen = ImageDataGenerator(rescale=1. / 255)
+    
+    # Generator for training images
+    train_generator = train_datagen.flow_from_directory(
+        TRAIN_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
+        batch_size=BATCH_SIZE, class_mode='binary')
+    
+    # Generator for validation images
+    validation_generator = test_datagen.flow_from_directory(
+        TEST_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
+        batch_size=BATCH_SIZE, class_mode='binary')
+    
+    return train_generator, validation_generator
 
-    model = ModelPrep.create_train_model(NUM_CLASSES, used_model=Xception, optimizer='rmsprop')
 
-    # train the model on the new data for a few epochs
-    for e in range(EPOCHS):
-        print('Epoch', e)
-        batches = 0
-        for x_batch, y_batch in train_datagen.flow(x_train, y_train, batch_size=BATCH_SIZE):
-            model.fit(x_batch, y_batch)
-            batches += 1
-            if batches >= len(x_train) / BATCH_SIZE:
-                # we need to break the loop by hand because the generator loops indefinitely
-                break
+def get_callbacks():
+    weights_file_path = os.path.join(MODEL_OUT, "model.{epoch:02d}-{val_loss:.2f}.hdf5")
+    checkpoint_callback = ModelCheckpoint(weights_file_path, save_best_only=True, save_weights_only=False)
+    early_stop_callback = EarlyStopping(min_delta=0, patience=3, restore_best_weights=True)
+    
+    return checkpoint_callback, early_stop_callback
 
 
-    # model.fit_generator(datagen.flow(x_train, y_train, batch_size=BATCH_SIZE),
-    #                     steps_per_epoch=len(x_train) / BATCH_SIZE, epochs=EPOCHS)
 
+def train_base(num_classes=NUM_CLASSES):
+    print("Creating first model...")
+    model = ModelPrep.create_train_model(num_classes, used_model=Xception, optimizer='rmsprop')
+
+    train_generator, validation_generator = get_train_generators()
+    checkpoint_callback, early_stop_callback = get_callbacks()
+    
+    # first training
+    print("First training of top layers ...")
+    history = model.fit_generator(train_generator, steps_per_epoch=NUM_CLASSES*100/BATCH_SIZE,
+        epochs=EPOCHS, validation_data=validation_generator,
+        validation_steps=800, callbacks=[checkpoint_callback, early_stop_callback])
+
+
+def train_finetune(model):
+    #TODO: plot history
+    print("Preparing model for fine tuning ...")
     # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
     model = ModelPrep.prepare_model_for_fine_tune(model)
 
+    
+    train_generator, validation_generator = get_train_generators()
+    checkpoint_callback, early_stop_callback = get_callbacks()
+    
     # we train our model again (this time fine-tuning the top 2 inception blocks
     # alongside the top Dense layers
-    model.fit_generator(generator)
+    print("Model fine-tuning ...")
+    history = model.fit_generator(train_generator, steps_per_epoch=500,
+        epochs=EPOCHS, validation_data=validation_generator,
+        validation_steps=200, callbacks=[checkpoint_callback, early_stop_callback])
+    print("DONE train")
+    
+
+def cntn_training(model_weights_file, fine_tune=False, num_classes=NUM_CLASSES):
+    print("Creating base model...")
+    model = ModelPrep.create_train_model(num_classes, used_model=Xception, optimizer='rmsprop')
+    
+    if fine_tune:
+        print("Preparing model for fine tuning ...")
+        # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
+        model = ModelPrep.prepare_model_for_fine_tune(model)
+    
+    # load weights
+    print("loading weights")
+    
+    
+if __name__ == "__main__":
+#     DataPrep.prepare_data(train_spec=TRAIN_SPEC, train_out=TRAIN_OUT, test_spec=TEST_SPEC, test_out=TEST_OUT, img_dir=IMG_DIR)
+#     target_classes, avg_train, avg_test = DataLoader.get_data_info(TRAIN_OUT, TEST_OUT)
+#     print("Classification for {} classes, {} train / {} test examples on average"
+#           .format(len(target_classes), avg_train, avg_test))
+#     train_base(len(target_classes))
+
+    train_base()
