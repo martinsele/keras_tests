@@ -4,7 +4,7 @@ import numpy as np
 from swissknife.images import compute_featurewise_mean_and_std
 from keras.preprocessing.image import ImageDataGenerator, NumpyArrayIterator
 
-from basedir import TRAIN_IMAGES, VALID_IMAGES
+from dog_cat_breeds.basedir import TRAIN_IMAGES, VALID_IMAGES
 
 
 def augment_images(width_shift=0.2,

@@ -62,18 +62,17 @@ def get_train_generators():
 
 def get_callbacks():
     weights_file_path = os.path.join(MODEL_OUT, "model.{epoch:02d}-{val_loss:.2f}.hdf5")
-    checkpoint_callback = ModelCheckpoint(weights_file_path, save_best_only=True, save_weights_only=False)
+    checkpoint_callback = ModelCheckpoint(weights_file_path, save_best_only=True, save_weights_only=True)
     early_stop_callback = EarlyStopping(min_delta=0, patience=3, restore_best_weights=True)
     
     return checkpoint_callback, early_stop_callback
 
 
+def load_weights(model, w_path):
+    model.load_weights(w_path)
 
-def train_base(num_classes=NUM_CLASSES):
-    print("Creating first model...")
-    model = ModelPrep.create_train_model(num_classes, used_model=Xception, 
-                                         optimizer='rmsprop', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
 
+def train_base(model, num_classes=NUM_CLASSES):
     train_generator, validation_generator = get_train_generators()
     checkpoint_callback, early_stop_callback = get_callbacks()
     
@@ -86,11 +85,6 @@ def train_base(num_classes=NUM_CLASSES):
 
 def train_finetune(model):
     #TODO: plot history
-    print("Preparing model for fine tuning ...")
-    # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
-    model = ModelPrep.prepare_model_for_fine_tune(model)
-
-    
     train_generator, validation_generator = get_train_generators()
     checkpoint_callback, early_stop_callback = get_callbacks()
     
@@ -103,26 +97,36 @@ def train_finetune(model):
     print("DONE train")
     
 
-def cntn_training(model_weights_file, fine_tune=False, num_classes=NUM_CLASSES):
-    print("Creating base model...")
-    model = ModelPrep.create_train_model(num_classes, used_model=Xception, 
-                                         optimizer='rmsprop', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
-    
-    if fine_tune:
-        print("Preparing model for fine tuning ...")
-        # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
-        model = ModelPrep.prepare_model_for_fine_tune(model)
-    
+def cntn_training(model, model_weights_file, fine_tune=False, num_classes=NUM_CLASSES):
     # load weights
     print("loading weights")
-    #TODO:
-    
+    load_weights(model, model_weights_file)
+
     
 if __name__ == "__main__":
     # DataPrep.prepare_data(train_spec=TRAIN_SPEC, train_out=TRAIN_OUT, test_spec=TEST_SPEC, test_out=TEST_OUT, img_dir=IMG_DIR)
 #     target_classes, avg_train, avg_test = DataLoader.get_data_info(TRAIN_OUT, TEST_OUT)
-#     print("Classification for {} classes, {} train / {} test examples on average"
-#           .format(len(target_classes), avg_train, avg_test))
+#     print("Classification for {} classes, {} train / {} test examples on average".format(len(target_classes), avg_train, avg_test))
 #     train_base(len(target_classes))
+    weights_to_continue = None
+    was_fine_tuning=False
 
-    train_base()
+    print("Creating first model...")
+    model = ModelPrep.create_train_model(num_classes, used_model=Xception,
+                                         optimizer='rmsprop', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
+    if not was_fine_tuning:
+        if weights_to_continue:
+            print("loading weights")
+            load_weights(model, model_weights_file)
+
+        train_base(model)
+
+    print("Preparing model for fine tuning ...")
+    # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
+    model = ModelPrep.prepare_model_for_fine_tune(model)
+
+    if weights_to_continue:
+        print("loading weights")
+        load_weights(model, model_weights_file)
+
+    train_finetune(model)
