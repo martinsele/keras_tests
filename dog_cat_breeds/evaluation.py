@@ -8,9 +8,7 @@ from keras import backend as K
 from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 
-from scipy.ndimage import imread
-from scipy.io import loadmat
-from scipy.misc import imresize
+from imageio import imread
 
 import matplotlib.pyplot as plt # use as plt.imshow()
 
@@ -27,8 +25,8 @@ from  dataloading import DataLoader, DataPrep
 # prepare for inference
 
 NUM_CLASSES = 37    # TODO - modify according to real data
-# DATA_DIR = "../../data/dogs-cats"
-DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
+DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
+# DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
 IMG_DIR = os.path.join(DATA_DIR, "images")
 INFO_DIR = os.path.join(DATA_DIR, "annotations") 
 TRAIN_OUT = os.path.join(DATA_DIR, "train")
@@ -52,12 +50,12 @@ def get_train_generators():
     # Generator for training images
     train_generator = train_datagen.flow_from_directory(
         TRAIN_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
-        batch_size=BATCH_SIZE, class_mode='binary')
+        batch_size=BATCH_SIZE, class_mode='categorical') # 'categorical' for multiple classes / 'binary' for 2 classes
     
     # Generator for validation images
     validation_generator = test_datagen.flow_from_directory(
         TEST_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
-        batch_size=BATCH_SIZE, class_mode='binary')
+        batch_size=BATCH_SIZE, class_mode='categorical')    # 'categorical' for multiple classes / 'binary' for 2 classes
     
     return train_generator, validation_generator
 
@@ -121,7 +119,7 @@ def cntn_training(model_weights_file, fine_tune=False, num_classes=NUM_CLASSES):
     
     
 if __name__ == "__main__":
-#     DataPrep.prepare_data(train_spec=TRAIN_SPEC, train_out=TRAIN_OUT, test_spec=TEST_SPEC, test_out=TEST_OUT, img_dir=IMG_DIR)
+    # DataPrep.prepare_data(train_spec=TRAIN_SPEC, train_out=TRAIN_OUT, test_spec=TEST_SPEC, test_out=TEST_OUT, img_dir=IMG_DIR)
 #     target_classes, avg_train, avg_test = DataLoader.get_data_info(TRAIN_OUT, TEST_OUT)
 #     print("Classification for {} classes, {} train / {} test examples on average"
 #           .format(len(target_classes), avg_train, avg_test))

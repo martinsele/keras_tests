@@ -1,9 +1,8 @@
 from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 
 from scipy.ndimage import imread
-# from imageio import imread
-from scipy.io import loadmat
-from scipy.misc import imresize # install Python Image Library
+from imageio import imread
+from skimage.transform import resize
 
 import os.path
 from shutil import copy
@@ -56,7 +55,7 @@ class DataLoader:
         targs = [t for i, t in enumerate(targs) if (i not in grays)]
         images = [im if (im.shape[2] == 3) else im[:, :, :-1] for im in images]
         # resize all images
-        images = [imresize(im, size=im_size) for im in images]
+        images = [resize(im, size=im_size) for im in images]
 
         return image_paths, targs
 
