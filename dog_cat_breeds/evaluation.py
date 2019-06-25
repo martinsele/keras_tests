@@ -25,8 +25,8 @@ from  dataloading import DataLoader, DataPrep
 # prepare for inference
 
 NUM_CLASSES = 37    # TODO - modify according to real data
-DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
-# DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
+# DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
+DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
 IMG_DIR = os.path.join(DATA_DIR, "images")
 INFO_DIR = os.path.join(DATA_DIR, "annotations") 
 TRAIN_OUT = os.path.join(DATA_DIR, "train")
@@ -108,14 +108,15 @@ if __name__ == "__main__":
 #     target_classes, avg_train, avg_test = DataLoader.get_data_info(TRAIN_OUT, TEST_OUT)
 #     print("Classification for {} classes, {} train / {} test examples on average".format(len(target_classes), avg_train, avg_test))
 #     train_base(len(target_classes))
-    weights_to_continue = None
+    model_weights_file = None
     was_fine_tuning=False
+    num_classes = NUM_CLASSES
 
     print("Creating first model...")
     model = ModelPrep.create_train_model(num_classes, used_model=Xception,
                                          optimizer='rmsprop', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
     if not was_fine_tuning:
-        if weights_to_continue:
+        if model_weights_file:
             print("loading weights")
             load_weights(model, model_weights_file)
 
@@ -125,7 +126,7 @@ if __name__ == "__main__":
     # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
     model = ModelPrep.prepare_model_for_fine_tune(model)
 
-    if weights_to_continue:
+    if model_weights_file:
         print("loading weights")
         load_weights(model, model_weights_file)
 
