@@ -47,7 +47,7 @@ class ModelPrep:
 
 
     @staticmethod
-    def prepare_model_for_fine_tune(model):
+    def prepare_model_for_fine_tune(model, metrics=None):
         """
         Prepare model for fine-tuning
         :param model:
@@ -61,5 +61,5 @@ class ModelPrep:
 
         # we need to recompile the model for these modifications to take effect
         # we use SGD with a low learning rate
-        model.compile(optimizer=SGD(lr=0.0001, momentum=0.9), loss='categorical_crossentropy')
+        model.compile(optimizer=SGD(lr=0.0001, momentum=0.9), loss='categorical_crossentropy', metrics=metrics)
         return model

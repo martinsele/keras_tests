@@ -25,8 +25,8 @@ from  dataloading import DataLoader, DataPrep
 # prepare for inference
 
 NUM_CLASSES = 37    # TODO - modify according to real data
-# DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
-DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
+DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
+# DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
 IMG_DIR = os.path.join(DATA_DIR, "images")
 INFO_DIR = os.path.join(DATA_DIR, "annotations") 
 TRAIN_OUT = os.path.join(DATA_DIR, "train")
@@ -91,7 +91,7 @@ def train_finetune(model):
     # we train our model again (this time fine-tuning the top 2 inception blocks
     # alongside the top Dense layers
     print("Model fine-tuning ...")
-    history = model.fit_generator(train_generator, steps_per_epoch=500,
+    history = model.fit_generator(train_generator, steps_per_epoch=NUM_CLASSES*100/BATCH_SIZE,
         epochs=EPOCHS, validation_data=validation_generator,
         validation_steps=200, callbacks=[checkpoint_callback, early_stop_callback])
     print("DONE train")
@@ -102,6 +102,14 @@ def cntn_training(model, model_weights_file, fine_tune=False, num_classes=NUM_CL
     print("loading weights")
     load_weights(model, model_weights_file)
 
+def evaluation(model):
+    test_datagen = ImageDataGenerator(rescale=1. / 255)
+    eval_generator = test_datagen.flow_from_directory(TEST_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
+            batch_size=BATCH_SIZE, class_mode='categorical')
+
+    for x_valid, y_valid in eval_generator:
+        y_pred = model.predict_on_batch(x_valid)
+        #TODO - estimate confusion matrix
     
 if __name__ == "__main__":
     # DataPrep.prepare_data(train_spec=TRAIN_SPEC, train_out=TRAIN_OUT, test_spec=TEST_SPEC, test_out=TEST_OUT, img_dir=IMG_DIR)
@@ -112,22 +120,27 @@ if __name__ == "__main__":
     was_fine_tuning=False
     num_classes = NUM_CLASSES
 
+    phase = "TRAIN"
+
     print("Creating first model...")
     model = ModelPrep.create_train_model(num_classes, used_model=Xception,
                                          optimizer='rmsprop', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3))
-    if not was_fine_tuning:
-        if model_weights_file:
-            print("loading weights")
-            load_weights(model, model_weights_file)
-
-        train_base(model)
+    if phase == "TRAIN":
+        if not was_fine_tuning:
+            if model_weights_file:
+                print("loading weights")
+                load_weights(model, model_weights_file)
+            train_base(model)
 
     print("Preparing model for fine tuning ...")
     # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
-    model = ModelPrep.prepare_model_for_fine_tune(model)
+    model = ModelPrep.prepare_model_for_fine_tune(model, metrics=["accuracy"])
 
     if model_weights_file:
         print("loading weights")
         load_weights(model, model_weights_file)
 
-    train_finetune(model)
+    if phase == "TRAIN":
+        train_finetune(model)
+    elif phase == "EVAL":
+        evaluation(model)
