@@ -9,7 +9,7 @@ from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 
 from imageio import imread
-
+import numpy as np
 import matplotlib.pyplot as plt # use as plt.imshow()
 
 import os.path
@@ -25,12 +25,13 @@ from  dataloading import DataLoader, DataPrep
 # prepare for inference
 
 NUM_CLASSES = 37    # TODO - modify according to real data
-# DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
-DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
+DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
+# DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
 IMG_DIR = os.path.join(DATA_DIR, "images")
 INFO_DIR = os.path.join(DATA_DIR, "annotations") 
 TRAIN_OUT = os.path.join(DATA_DIR, "train")
 TEST_OUT = os.path.join(DATA_DIR, "test")
+INFERE_DIR = os.path.join(DATA_DIR, "infer")
 MODEL_OUT = os.path.join(DATA_DIR, "models")
 
 TRAIN_SPEC = os.path.join(INFO_DIR, "trainval.txt")
@@ -97,11 +98,6 @@ def train_finetune(model):
     print("DONE train")
     
 
-def cntn_training(model, model_weights_file, fine_tune=False, num_classes=NUM_CLASSES):
-    # load weights
-    print("loading weights")
-    load_weights(model, model_weights_file)
-
 def evaluation(model):
     test_datagen = ImageDataGenerator(rescale=1. / 255)
     eval_generator = test_datagen.flow_from_directory(TEST_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
@@ -110,17 +106,34 @@ def evaluation(model):
     for x_valid, y_valid in eval_generator:
         y_pred = model.predict_on_batch(x_valid)
         #TODO - estimate confusion matrix
+
+def predict_one(file_name, model, class_names, im_size=(IMG_HEIGHT, IMG_WIDTH)):
+    img_X = DataLoader.get_one_image(file_name, im_size=im_size)
+    img_X = np.expand_dims(img_X, axis=0)   # add dimension for batch size
+    y = model.predict(img_X, batch_size=1)
+
+    max_class_idx = y.argmax()
+    class_name = list(class_names.keys())[list(class_names.values()).index(max_class_idx)]
+    print(class_name)
+    return y, class_name
+
+
     
 if __name__ == "__main__":
     # DataPrep.prepare_data(train_spec=TRAIN_SPEC, train_out=TRAIN_OUT, test_spec=TEST_SPEC, test_out=TEST_OUT, img_dir=IMG_DIR)
 #     target_classes, avg_train, avg_test = DataLoader.get_data_info(TRAIN_OUT, TEST_OUT)
 #     print("Classification for {} classes, {} train / {} test examples on average".format(len(target_classes), avg_train, avg_test))
 #     train_base(len(target_classes))
-    model_weights_file = os.path.join(MODEL_OUT, 'model.02-0.25.hdf5')
+
+#     model_weights_file = os.path.join(MODEL_OUT, 'model.02-0.25.hdf5')
+    model_weights_file = os.path.join(MODEL_OUT, "finetune-model.02-0.25.hdf5")
     was_fine_tuning=True
     num_classes = NUM_CLASSES
 
-    phase = "TRAIN"
+    train_generator, validation_generator = get_train_generators()
+    class_names = (train_generator.class_indices)
+
+    phase = "INFERE"
 
     print("Creating first model...")
     model = ModelPrep.create_train_model(num_classes, used_model=Xception,
@@ -144,3 +157,6 @@ if __name__ == "__main__":
         train_finetune(model)
     elif phase == "EVAL":
         evaluation(model)
+    elif phase == "INFERE":
+        img_to_predict = os.path.join(INFERE_DIR, "newfoundland1.jpg")
+        predict_one(img_to_predict, model, class_names)
