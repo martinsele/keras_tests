@@ -1,7 +1,7 @@
 from keras.applications.inception_v3 import InceptionV3
 from keras.preprocessing import image
 from keras.models import Model
-from keras.layers import Dense, GlobalAveragePooling2D
+from keras.layers import Dense, GlobalAveragePooling2D, Dropout 
 from keras import backend as K
 from keras.optimizers import SGD
 
@@ -28,7 +28,8 @@ class ModelPrep:
         x = GlobalAveragePooling2D()(x)
         # let's add a fully-connected layer
         x = Dense(1024, activation='relu')(x)
-        #TODO: - add dropout?
+        # add dropout
+        x = Dropout(0.5)(x)
         
         # and a logistic layer
         predictions = Dense(num_outputs, activation='softmax')(x)

@@ -45,13 +45,14 @@ EPOCHS = 15
 
 
 def get_train_generators():
-    train_datagen = ImageDataGenerator(rescale=1. / 255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
+    train_datagen = ImageDataGenerator(rescale=1. / 255, shear_range=0.1, zoom_range=0.1, horizontal_flip=True)
     test_datagen = ImageDataGenerator(rescale=1. / 255)
     
     # Generator for training images
     train_generator = train_datagen.flow_from_directory(
         TRAIN_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
-        batch_size=BATCH_SIZE, class_mode='categorical') # 'categorical' for multiple classes / 'binary' for 2 classes
+        batch_size=BATCH_SIZE, shuffle=True,
+        class_mode='categorical') # 'categorical' for multiple classes / 'binary' for 2 classes
     
     # Generator for validation images
     validation_generator = test_datagen.flow_from_directory(
@@ -79,9 +80,9 @@ def train_base(model, num_classes=NUM_CLASSES):
     
     # first training
     print("First training of top layers ...")
-    history = model.fit_generator(train_generator, steps_per_epoch=NUM_CLASSES*100/BATCH_SIZE,
+    history = model.fit_generator(train_generator, steps_per_epoch=NUM_CLASSES*200/BATCH_SIZE,
         epochs=EPOCHS, validation_data=validation_generator,
-        validation_steps=800, callbacks=[checkpoint_callback, early_stop_callback])
+        validation_steps=NUM_CLASSES*50/BATCH_SIZE, callbacks=[checkpoint_callback, early_stop_callback])
 
 
 def train_finetune(model):
@@ -92,9 +93,9 @@ def train_finetune(model):
     # we train our model again (this time fine-tuning the top 2 inception blocks
     # alongside the top Dense layers
     print("Model fine-tuning ...")
-    history = model.fit_generator(train_generator, steps_per_epoch=NUM_CLASSES*100/BATCH_SIZE,
+    history = model.fit_generator(train_generator, steps_per_epoch=NUM_CLASSES*200/BATCH_SIZE,
         epochs=EPOCHS, validation_data=validation_generator,
-        validation_steps=200, callbacks=[checkpoint_callback, early_stop_callback])
+        validation_steps=NUM_CLASSES*50/BATCH_SIZE, callbacks=[checkpoint_callback, early_stop_callback])
     print("DONE train")
     
 
