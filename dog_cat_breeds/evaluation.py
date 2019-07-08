@@ -108,12 +108,13 @@ def evaluation(model, class_names=None):
     Y_pred = model.predict_generator(eval_generator, NUM_CLASSES*100//BATCH_SIZE +1)
     y_pred = np.argmax(Y_pred, axis=1)
     print('Confusion Matrix')
-    print(confusion_matrix(validation_generator.classes, y_pred))
+    conf_mat = confusion_matrix(eval_generator.classes, y_pred)
+    print(conf_mat)
     print('Classification Report')
     labels = None
     if class_names:
         labels = class_names.keys()
-    print(classification_report(validation_generator.classes, y_pred, target_names=labels))
+    print(classification_report(eval_generator.classes, y_pred, target_names=labels))
     
 
 def predict_one(file_name, model, class_names, im_size=(IMG_HEIGHT, IMG_WIDTH)):
@@ -165,7 +166,7 @@ if __name__ == "__main__":
     if phase == "TRAIN":
         train_finetune(model)
     elif phase == "EVAL":
-        evaluation(model)
+        evaluation(model, class_names)
     elif phase == "INFERE":
         img_to_predict = os.path.join(INFERE_DIR, "newfoundland1.jpg")
         predict_one(img_to_predict, model, class_names)
