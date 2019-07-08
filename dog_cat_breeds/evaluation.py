@@ -9,6 +9,7 @@ from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 
 from imageio import imread
+from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 import matplotlib.pyplot as plt # use as plt.imshow()
 
@@ -25,8 +26,8 @@ from  dataloading import DataLoader, DataPrep
 # prepare for inference
 
 NUM_CLASSES = 37    # TODO - modify according to real data
-DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
-# DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
+# DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
+DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
 IMG_DIR = os.path.join(DATA_DIR, "images")
 INFO_DIR = os.path.join(DATA_DIR, "annotations") 
 TRAIN_OUT = os.path.join(DATA_DIR, "train")
@@ -99,14 +100,21 @@ def train_finetune(model):
     print("DONE train")
     
 
-def evaluation(model):
+def evaluation(model, class_names=None):
     test_datagen = ImageDataGenerator(rescale=1. / 255)
     eval_generator = test_datagen.flow_from_directory(TEST_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
             batch_size=BATCH_SIZE, class_mode='categorical')
-
-    for x_valid, y_valid in eval_generator:
-        y_pred = model.predict_on_batch(x_valid)
-        #TODO - estimate confusion matrix
+    
+    Y_pred = model.predict_generator(eval_generator, NUM_CLASSES*100//BATCH_SIZE +1)
+    y_pred = np.argmax(Y_pred, axis=1)
+    print('Confusion Matrix')
+    print(confusion_matrix(validation_generator.classes, y_pred))
+    print('Classification Report')
+    labels = None
+    if class_names:
+        labels = class_names.keys()
+    print(classification_report(validation_generator.classes, y_pred, target_names=labels))
+    
 
 def predict_one(file_name, model, class_names, im_size=(IMG_HEIGHT, IMG_WIDTH)):
     img_X = DataLoader.get_one_image(file_name, im_size=im_size)
@@ -127,14 +135,14 @@ if __name__ == "__main__":
 #     train_base(len(target_classes))
 
 #     model_weights_file = os.path.join(MODEL_OUT, 'model.02-0.25.hdf5')
-    model_weights_file = os.path.join(MODEL_OUT, "finetune-model.02-0.25.hdf5")
+    model_weights_file = os.path.join(MODEL_OUT, "fine_model.06-0.28.hdf5")
     was_fine_tuning=True
     num_classes = NUM_CLASSES
 
     train_generator, validation_generator = get_train_generators()
     class_names = (train_generator.class_indices)
 
-    phase = "INFERE"
+    phase = "EVAL"
 
     print("Creating first model...")
     model = ModelPrep.create_train_model(num_classes, used_model=Xception,
