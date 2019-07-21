@@ -82,6 +82,10 @@ class DataPrep:
         
     @staticmethod
     def create_structure(in_spec, out_dir, img_dir):
+        """
+        Used to convert /cats_dogs_breed_keggle/ files to ImageDataGenerator structure
+        according to cats_dogs_breed_keggle/annotations/train.txt
+        """
         # read training data and save them to dir train/class_name for ImageDataGenerator.flow_from_directory()
         class_set = set()
         with open(in_spec, encoding="utf-8") as file:
@@ -99,6 +103,40 @@ class DataPrep:
                     print(img_source)
                     copy(img_source, class_path)
                     
+     
+     
+    @staticmethod
+    def create_structure_from_non_divided(img_dir, out_dir, train_num=100):
+        """
+        Prepare data for ImageDataGenerator in case of data divided to classes but not to train/test
+        @param img_dir: directory with images
+        @param out_dir: direcotry, where to create train/test structure
+        @param train_num: number of training examples in all classes
+        """
+        train_dirs = {}
+        test_dirs = {}
+        for cls in os.listdir(img_dir): # list all classes in dir
+            i = 0
+            train_files = []
+            test_files = []
+            for file in os.listdir(cls):
+                if i < train_num:
+                    train_files.append(file)
+                else:
+                    test_files.append(file)
+                i += 1
+            train_dirs[cls] = train_dirs
+            test_dirs[cls] = test_dirs
+        
+        DataPrep.create_train_test_structure(out_dir, train_dirs, test_dirs)
+     
+     
+    @staticmethod
+    def create_train_test_structure(out_dir, train_dirs, test_dirs):
+        """
+        TODO: create structure
+        """
+        pass
                     
     @staticmethod
     def prepare_class_dir(root_folder, class_name): 
@@ -112,3 +150,6 @@ class DataPrep:
         else:
             print("Class {} created".format(class_path))
             return class_path
+        
+        
+    

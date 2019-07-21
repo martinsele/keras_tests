@@ -58,7 +58,8 @@ def get_train_generators():
     # Generator for validation images
     validation_generator = test_datagen.flow_from_directory(
         TEST_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
-        batch_size=BATCH_SIZE, class_mode='categorical')    # 'categorical' for multiple classes / 'binary' for 2 classes
+        batch_size=BATCH_SIZE, shuffle=False,
+        class_mode='categorical')    # 'categorical' for multiple classes / 'binary' for 2 classes
     
     return train_generator, validation_generator
 
@@ -103,7 +104,7 @@ def train_finetune(model):
 def evaluation(model, class_names=None):
     test_datagen = ImageDataGenerator(rescale=1. / 255)
     eval_generator = test_datagen.flow_from_directory(TEST_OUT, target_size=(IMG_HEIGHT, IMG_WIDTH),
-            batch_size=BATCH_SIZE, class_mode='categorical')
+            batch_size=BATCH_SIZE, shuffle=False, class_mode='categorical')
     
     Y_pred = model.predict_generator(eval_generator, NUM_CLASSES*100//BATCH_SIZE +1)
     y_pred = np.argmax(Y_pred, axis=1)
@@ -130,7 +131,7 @@ def predict_one(file_name, model, class_names, im_size=(IMG_HEIGHT, IMG_WIDTH)):
 
     
 if __name__ == "__main__":
-    # DataPrep.prepare_data(train_spec=TRAIN_SPEC, train_out=TRAIN_OUT, test_spec=TEST_SPEC, test_out=TEST_OUT, img_dir=IMG_DIR)
+    # DataPrep.create_structure(...)
 #     target_classes, avg_train, avg_test = DataLoader.get_data_info(TRAIN_OUT, TEST_OUT)
 #     print("Classification for {} classes, {} train / {} test examples on average".format(len(target_classes), avg_train, avg_test))
 #     train_base(len(target_classes))
@@ -143,7 +144,7 @@ if __name__ == "__main__":
     train_generator, validation_generator = get_train_generators()
     class_names = (train_generator.class_indices)
 
-    phase = "EVAL"
+    phase = "INFERE"
 
     print("Creating first model...")
     model = ModelPrep.create_train_model(num_classes, used_model=Xception,
