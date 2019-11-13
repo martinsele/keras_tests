@@ -18,6 +18,18 @@ import os.path
 from  model import ModelPrep
 from  dataloading import DataLoader, DataPrep
 
+
+"""
+The ML pipeline for classification of different animals breeds:
+1. Recognize general animal (dog, cat, rabbit, bird, ...) and its bounding box
+    a. For this, use pre-trained yolo v.3 model
+2. For each animal class, train separate classifier based on existing model (Keras' Inception v3)
+    -> train on existing datasets:
+        a. Dogs: stanford_dogs (use annotations for getting cropped image and)
+        b. Cats: cats from https://www.kaggle.com/zippyz/cats-and-dogs-breeds-classification-oxford-dataset
+                 (annotated, not in classes for Generator)
+"""
+
 # read data
 # build model
 # train model + eval training
@@ -72,7 +84,7 @@ def get_callbacks():
     return checkpoint_callback, early_stop_callback
 
 
-def load_weights(model, w_path):
+def load_weights(model: Model, w_path):
     model.load_weights(w_path)
 
 
