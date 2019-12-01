@@ -2,13 +2,13 @@
 import os
 import shutil
 import numpy as np
-from utils import *
 from six.moves import cPickle as pickle
 from scipy import ndimage, io, misc
 
 from xml.dom import minidom
 
 
+IMG_SIZE = 300
 
 class DataLoading_W_Annotation():
     """
@@ -16,13 +16,13 @@ class DataLoading_W_Annotation():
     """    
     
     @staticmethod
-    def create_structure(images_folder):
+    def create_structure(base_folder, images_folder):
         images_folders = os.listdir(images_folder)
         for folder in images_folders:
-            os.makedirs("train/"+folder.split("\\")[-1])
-            os.makedirs("test/"+folder.split("\\")[-1])
-            os.makedirs("cropped/train/"+folder.split("\\")[-1])
-            os.makedirs("cropped/test/"+folder.split("\\")[-1])
+#             os.makedirs("train/"+folder.split("\\")[-1])
+#             os.makedirs("test/"+folder.split("\\")[-1])
+            os.makedirs(os.path.join(base_folder, 'cropped', 'train', folder.split("\\")[-1]))
+            os.makedirs(os.path.join(base_folder, 'cropped', 'test', folder.split("\\")[-1]))
             
             
     @staticmethod
@@ -36,6 +36,38 @@ class DataLoading_W_Annotation():
                 print('%s does not exist, it may be missing' % new_name)
         return [new_folder+'/'+d for d in sorted(os.listdir(new_folder)) if os.path.isdir(os.path.join(new_folder, d))]
     
+    
+    @staticmethod
+    def copy_cropped_files(image_list, old_folder, new_folder, annotation_folder):
+        print(f'Processing list {image_list}')
+        for file in image_list:
+            old_name = os.path.join(old_folder, file[0][0])
+            new_name = os.path.join(new_folder, file[0][0])
+            if os.path.exists(old_name):                
+                DataLoading_W_Annotation.save_cropped(file[0][0], old_folder, new_folder, annotation_folder)
+            elif not os.path.exists(new_name):
+                print('%s does not exist, it may be missing' % new_name)
+    
+    
+    @staticmethod
+    def save_cropped(file_name, old_folder, new_folder, annotation_folder, image_size=IMG_SIZE):
+        old_name = os.path.join(old_folder, file_name)
+        new_name = os.path.join(new_folder, file_name)
+        annot_name = os.path.join(annotation_folder, file_name.split('.')[0])
+        try:
+            image_data = misc.imread(old_name)
+            annon_xml = minidom.parse(annot_name)
+            xmin = int(annon_xml.getElementsByTagName('xmin')[0].firstChild.nodeValue)
+            ymin = int(annon_xml.getElementsByTagName('ymin')[0].firstChild.nodeValue)
+            xmax = int(annon_xml.getElementsByTagName('xmax')[0].firstChild.nodeValue)
+            ymax = int(annon_xml.getElementsByTagName('ymax')[0].firstChild.nodeValue)
+            
+            new_image_data = image_data[ymin:ymax,xmin:xmax,:]
+            new_image_data = misc.imresize(new_image_data, (image_size, image_size))
+            misc.imsave(new_name, new_image_data)
+            print(f'...saving file {new_name}')
+        except IOError as e:
+            print('Could not read:', old_name, ':', e, '- it\'s ok, skipping.')
     
         
     @staticmethod
@@ -156,14 +188,27 @@ class DataLoading_W_Annotation():
     
     
     @staticmethod
-    def read_mat_files(train_mat, test_mat, train_size = 9600, valid_size = 2400, test_size = 8580):
+    def read_mat_files(train_mat, test_mat, data_folder, annotation_folder, create_data_set=False, train_size = 9600, valid_size = 2400, test_size = 8580):
         
         test_list = io.loadmat(test_mat)['file_list']
         train_list = io.loadmat(train_mat)['file_list']
-
-        test_folders = DataLoading_W_Annotation.move_data_files(test_list, 'test')
-        train_folders = DataLoading_W_Annotation.move_data_files(train_list, 'train')
         
+        old_folder = os.path.join(data_folder, 'Images')
+
+        test_folders = DataLoading_W_Annotation.copy_cropped_files(test_list, old_folder, 
+                                                                os.path.join(data_folder, 'cropped','test'),
+                                                                annotation_folder)
+        train_folders = DataLoading_W_Annotation.copy_cropped_files(train_list, old_folder,
+                                                                os.path.join(data_folder, 'cropped','train'),
+                                                                annotation_folder)
+        
+        if create_data_set:
+            DataLoading_W_Annotation.create_data_labels_datasets(train_folders, test_folders, 
+                                                                 train_size, valid_size, test_size)
+        
+    
+    @staticmethod
+    def create_data_labels_datasets(train_folders, test_folders, train_size = 9600, valid_size = 2400, test_size = 8580):
         train_datasets = DataLoading_W_Annotation.maybe_pickle(train_folders, force=True)
         test_datasets = DataLoading_W_Annotation.maybe_pickle(test_folders, force=True)
         
@@ -175,7 +220,6 @@ class DataLoading_W_Annotation():
         print('Validation:', valid_dataset.shape, valid_labels.shape)
         print('Testing:', test_dataset.shape, test_labels.shape)
         
-        from utils import *
         np.save(open('train_dataset.npy','wb'), train_dataset)
         np.save(open('train_labels.npy','wb'), train_labels)
         np.save(open('valid_dataset.npy','wb'), valid_dataset)
@@ -185,6 +229,13 @@ class DataLoading_W_Annotation():
         np.save(open('test_labels.npy','wb'), test_labels)
     
     
-if __name__ == "__name__":
-    DataLoading_W_Annotation.read_mat_files('train_list.mat', 'test_list.mat')
+if __name__ == "__main__":
+    data_folder = "e:/data/dogs_cats/stanford_dogs"
+    images_folder = os.path.join(data_folder, "Images")
+    annotation_folder = os.path.join(data_folder, "Annotation")
+    train_list = os.path.join(data_folder, 'train_list.mat')
+    test_list = os.path.join(data_folder, 'test_list.mat')
+    
+    DataLoading_W_Annotation.create_structure(data_folder, images_folder)
+    DataLoading_W_Annotation.read_mat_files(train_list, test_list, data_folder, annotation_folder)
     

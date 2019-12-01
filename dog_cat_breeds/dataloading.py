@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt # use as plt.imshow()
 
 class DataLoader:
     
-    
     @staticmethod
     def get_data_info(train_folder, test_folder):
         '''
