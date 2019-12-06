@@ -17,6 +17,7 @@ keras.preprocessing.image.ImageDataGenerator, i.e.
 
 ```
 data/
+ cropped/
     train/
         dog1/
             dog001.jpg

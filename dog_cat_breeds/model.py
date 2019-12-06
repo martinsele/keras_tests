@@ -1,9 +1,10 @@
+from typing import Tuple
+
 from keras.applications.inception_v3 import InceptionV3
-from keras.preprocessing import image
 from keras.models import Model
-from keras.layers import Dense, GlobalAveragePooling2D, Dropout 
-from keras import backend as K
+from keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from keras.optimizers import SGD
+
 
 # load existing model with weights, without top layers
 # add top layers for classification
@@ -12,12 +13,14 @@ from keras.optimizers import SGD
 class ModelPrep:
 
     @staticmethod
-    def create_train_model(num_outputs, used_model=InceptionV3, optimizer='rmsprop', input_shape=(299, 299, 3)):
+    def create_train_model(num_outputs, used_model=InceptionV3, optimizer='rmsprop',
+                           input_shape: Tuple[int, int, int] = (300, 300, 3)) -> Model:
         """
         Create model for fine-tuning
-        :param used_model: e.g. Keras' InceptionV3
-        :param num_outputs:
+        :param used_model: type of model to load, e.g. Keras' InceptionV3
+        :param num_outputs: number of outputs
         :param optimizer: optimizer to use
+        :param input_shape: shape of input image
         :return: model without top layer
         """
         # create the base pre-trained model
@@ -30,7 +33,7 @@ class ModelPrep:
         x = Dense(1024, activation='relu')(x)
         # add dropout
         x = Dropout(0.5)(x)
-        
+
         # and a logistic layer
         predictions = Dense(num_outputs, activation='softmax')(x)
 
@@ -46,12 +49,12 @@ class ModelPrep:
         model.compile(optimizer=optimizer, loss='categorical_crossentropy')
         return model
 
-
     @staticmethod
-    def prepare_model_for_fine_tune(model, metrics=None):
+    def prepare_model_for_fine_tune(model: Model, metrics=None) -> Model:
         """
         Prepare model for fine-tuning
-        :param model:
+        :param model: model to tune
+        :param metrics: metrics to bserve
         :return:
         """
         # we chose to train the top 2 inception blocks

@@ -23,6 +23,7 @@ keras.preprocessing.image.ImageDataGenerator, i.e.
 
 ```
 data/
+  cropped/
     train/
         cat1/
             cat001.jpg
@@ -118,11 +119,11 @@ class CatsProcessor(AnimalProcessorBase):
             valid_files = operator.itemgetter(*rand_order[train_len:train_len + val_len])(files)
             test_files = operator.itemgetter(*rand_order[train_len + val_len:])(files)
             self.copy_cropped_files(train_files, image_folder,
-                                    os.path.join(base_folder, "cropped_cat", "train", label), annot_folder)
+                                    os.path.join(base_folder, "cropped", "train", label), annot_folder)
             self.copy_cropped_files(valid_files, image_folder,
-                                    os.path.join(base_folder, "cropped_cat", "valid", label), annot_folder)
+                                    os.path.join(base_folder, "cropped", "valid", label), annot_folder)
             self.copy_cropped_files(test_files, image_folder,
-                                    os.path.join(base_folder, "cropped_cat", "test", label), annot_folder)
+                                    os.path.join(base_folder, "cropped", "test", label), annot_folder)
 
     @staticmethod
     def create_structure(base_folder: str, labels: Iterable[LabelName]):
@@ -132,9 +133,9 @@ class CatsProcessor(AnimalProcessorBase):
         :param labels: list of all breed labels/names
         """
         for label in labels:
-            os.makedirs(os.path.join(base_folder, 'cropped_cat', 'train', label), exist_ok=True)
-            os.makedirs(os.path.join(base_folder, 'cropped_cat', 'valid', label), exist_ok=True)
-            os.makedirs(os.path.join(base_folder, 'cropped_cat', 'test', label), exist_ok=True)
+            os.makedirs(os.path.join(base_folder, 'cropped', 'train', label), exist_ok=True)
+            os.makedirs(os.path.join(base_folder, 'cropped', 'valid', label), exist_ok=True)
+            os.makedirs(os.path.join(base_folder, 'cropped', 'test', label), exist_ok=True)
 
     def copy_cropped_files(self, image_list, old_folder, new_folder, annot_folder):
         """
