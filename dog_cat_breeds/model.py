@@ -50,7 +50,7 @@ class ModelPrep:
         return model
 
     @staticmethod
-    def prepare_model_for_fine_tune(model: Model, metrics=None) -> Model:
+    def prepare_fine_tuned_model(model: Model, metrics=None) -> Model:
         """
         Prepare model for fine-tuning
         :param model: model to tune

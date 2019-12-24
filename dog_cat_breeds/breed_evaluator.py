@@ -15,6 +15,7 @@ from dataload.cats_processor import CatsProcessor
 from dataload.dogs_processor import DogsProcessor
 from model import ModelPrep
 from dataloading import DataLoader
+from utils import AnimalType
 
 """
 The ML pipeline for classification of different animals breeds:
@@ -30,7 +31,10 @@ The ML pipeline for classification of different animals breeds:
 
 class CroppedImgModeler:
 
-    def __init__(self, img_size: int, batch_size: int, epochs: int, data_dir: str, optimalizator='rmsprop'):
+    def __init__(self, animal: AnimalType, img_size: int = AnimalProcessorBase.IMG_SIZE,
+                 batch_size: int = 64, epochs: int = 10,
+                 data_dir: str = "", optimalizator='rmsprop'):
+        self.animal = animal
         self.image_size = img_size
         self.batch_size = batch_size
         self.num_epochs = epochs
@@ -71,7 +75,7 @@ class CroppedImgModeler:
         Prepare training callbacks
         :return tuple of training callbacks
         """
-        weights_file_path = os.path.join(self.model_dir, "model.{epoch:02d}-{val_loss:.2f}.hdf5")
+        weights_file_path = os.path.join(self.model_dir, f"model_{self.animal}_"+"{epoch:02d}-{val_loss:.2f}.hdf5")
         checkpoint_callback = ModelCheckpoint(weights_file_path, save_best_only=True, save_weights_only=True)
         early_stop_callback = EarlyStopping(min_delta=0, patience=3, restore_best_weights=True)
         return checkpoint_callback, early_stop_callback
@@ -169,53 +173,20 @@ class CroppedImgModeler:
         print(class_name)
         return y, class_name
 
-    def model_data(self, phase: str):
+    def model_data(self, phase: str, fine_tune: bool, weights_to_load: str = ""):
         """
-        Perform modeling given on the assigned actio
-        :param data_dir: dataset folder root
+        Perform modeling given the assigned action
         :param phase: on of TRAIN, EVAL, INFER
+        :param fine_tune: whether to fine-tune the model
+        :param weights_to_load: path to weights file to load
         """
-        model_file = os.path.join(self.model_dir, f"model_{animal}" + ".{epoch:02d}-{val_loss:.2f}.hdf5")
-        model_weights_file = os.path.join(self.model_dir, f"fine_model_{animal}" + ".06-0.28.hdf5")
-
         # -----------------------  CODE FOR TRAINING / INFERENCE
-        data_processor: Optional[AnimalProcessorBase] = None
-        if animal == "cat":
-            data_processor = CatsProcessor(DATA_DIR)
-        elif animal == "dogs":
-            data_processor = DogsProcessor(DATA_DIR)
-
-        if data_processor is None:
-            print("Unknown animal type !")
-            exit(-1)
-
-        if phase == "TRAIN":
-            if data_processor.check_folder_structure():
-                data_processor.create_folders_for_processing()
-
+        data_processor = self.prepare_data(self.animal, phase)
         num_of_classes = data_processor.get_number_of_classes()
-        was_fine_tuning = False
 
-        train_generator, validation_generator = self.get_train_generators()
-        cls_names = train_generator.class_indices
+        cls_names = self.get_class_names()
 
-        print("Creating first model...")
-        model = ModelPrep.create_train_model(num_of_classes, used_model=Xception,
-                                             optimizer='rmsprop', input_shape=(self.image_size, self.image_size, 3))
-        if phase == "TRAIN":
-            if not was_fine_tuning:
-                if model_weights_file:
-                    print("loading weights")
-                    self.load_weights(model, model_weights_file)
-                self.train_base(model, num_of_classes)
-
-        print("Preparing model for fine tuning ...")
-        # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
-        model = ModelPrep.prepare_model_for_fine_tune(model, metrics=["accuracy"])
-
-        if model_weights_file:
-            print("loading weights")
-            self.load_weights(model, model_weights_file)
+        model = self.prepare_model(phase, data_processor, fine_tune, weights_to_load)
 
         if phase == "TRAIN":
             self.train_finetune(model, num_of_classes)
@@ -225,17 +196,78 @@ class CroppedImgModeler:
             img_to_predict = os.path.join(self.infer_dir, "newfoundland1.jpg")
             self.predict_one(img_to_predict, model, cls_names)
 
+    def get_class_names(self) -> Dict[Union[str, bytes], Any]:
+        train_generator, _ = self.get_train_generators()
+        cls_names = train_generator.class_indices
+        return cls_names
+
+    @staticmethod
+    def prepare_data(animal: AnimalType, phase: str) -> AnimalProcessorBase:
+        """
+        Prepare data structure
+        :param animal: animal data to process
+        :param phase: on of TRAIN, EVAL, INFER
+        :return prepared data processor
+        """
+        data_processor: Optional[AnimalProcessorBase] = None
+        if animal == "cat":
+            data_processor = CatsProcessor(DATA_DIR)
+        elif animal == "dog":
+            data_processor = DogsProcessor(DATA_DIR)
+
+        if data_processor is None:
+            print("Unknown animal type !")
+            exit(-1)
+
+        if phase == "TRAIN":
+            if data_processor.check_folder_structure():
+                data_processor.create_folders_for_processing()
+        return data_processor
+
+    def prepare_model(self, phase: str, data_processor: AnimalProcessorBase,
+                      fine_tune: bool, weights_to_load: str = "") -> Model:
+        """
+        Prepare model given the assigned action
+        :param phase: on of TRAIN, EVAL, INFER
+        :param data_processor: dataset processor
+        :param fine_tune: whether to fine-tune the model
+        :param weights_to_load: path to weights file to load
+
+        :return prepared model with loaded weights
+        """
+
+        num_of_classes = data_processor.get_number_of_classes()
+
+        print("Creating first model...")
+        model = ModelPrep.create_train_model(num_of_classes, used_model=Xception,
+                                             optimizer='rmsprop', input_shape=(self.image_size, self.image_size, 3))
+        if phase == "TRAIN":
+            if not fine_tune:
+                if weights_to_load:
+                    print("loading weights")
+                    self.load_weights(model, weights_to_load)
+                self.train_base(model, num_of_classes)
+
+        print("Preparing model for fine tuning ...")
+        # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
+        model = ModelPrep.prepare_fine_tuned_model(model, metrics=["accuracy"])
+        if weights_to_load:
+            print("loading fine-tuned weights")
+            self.load_weights(model, weights_to_load)
+        return model
+
 
 if __name__ == "__main__":
     # ---------------------  VARIABLE DEFINITIONS
-    animal = "cat"
+    animal_type = "cat"
+    fine_tune_model = False
     # DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
     DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
 
     BATCH_SIZE = 64
     EPOCHS = 15
-    img_modeler = CroppedImgModeler(AnimalProcessorBase.IMG_SIZE,
-                                    data_dir=DATA_DIR,
-                                    batch_size=BATCH_SIZE,
-                                    epochs=EPOCHS
-                                    )
+    img_modeler = CroppedImgModeler(animal=animal_type, img_size=AnimalProcessorBase.IMG_SIZE, data_dir=DATA_DIR,
+                                    batch_size=BATCH_SIZE, epochs=EPOCHS)
+
+    model_weights_file_to_load = os.path.join(img_modeler.model_dir, f"fine-model_{animal_type}" + "_06-0.28.hdf5")
+    img_modeler.model_data(phase="TRAIN", fine_tune=fine_tune_model)
