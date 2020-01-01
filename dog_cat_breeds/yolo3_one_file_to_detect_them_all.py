@@ -1,5 +1,8 @@
 import argparse
 import os
+from collections import defaultdict
+from typing import List, Dict
+
 import numpy as np
 from keras.layers import Conv2D, Input, BatchNormalization, LeakyReLU, ZeroPadding2D, UpSampling2D
 from keras.layers.merge import add, concatenate
@@ -7,6 +10,8 @@ from keras.models import Model, load_model
 import struct
 import cv2
 import sys
+
+from utils import AnimalType, LoadedImage
 
 np.set_printoptions(threshold=sys.maxsize)
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -367,7 +372,8 @@ def do_nms(boxes, nms_thresh):
         for i in range(len(sorted_indices)):
             index_i = sorted_indices[i]
 
-            if boxes[index_i].classes[c] == 0: continue
+            if boxes[index_i].classes[c] == 0:
+                continue
 
             for j in range(i + 1, len(sorted_indices)):
                 index_j = sorted_indices[j]
@@ -395,7 +401,6 @@ def draw_boxes(image, boxes, labels, obj_thresh):
                         cv2.FONT_HERSHEY_SIMPLEX,
                         1e-3 * image.shape[0],
                         (0, 255, 0), 2)
-
     return image
 
 
@@ -428,7 +433,7 @@ def _main_(in_args):
         # load the weights trained on COCO into the model
         weight_reader = WeightReader(weights_path)
         weight_reader.load_weights(yolov3)
-        yolov3.save('model.h5')
+        yolov3.save('yolo_model.h5')
     else:
         yolov3 = load_model(model_path)
 
@@ -454,7 +459,79 @@ def _main_(in_args):
     cv2.imwrite(image_path[:-4] + '_detected' + image_path[-4:], image.astype('uint8'))
 
 
+def find_animal(boxes: List[BoundBox], labels: List[str],
+                obj_thresh: float, animals_to_find: List[AnimalType]) -> Dict[AnimalType, List[BoundBox]]:
+    """
+    Find particular animal with its locations
+    :param boxes: found boxes
+    :param labels: yolo labels
+    :param obj_thresh:
+    :param animals_to_find:
+    :return: Map of found animal types and their bounding boxes
+    """
+    found_animals = defaultdict[List]
+    for box in boxes:
+        for i in range(len(labels)):
+            if box.classes[i] > obj_thresh and box.classes[i] in animals_to_find:
+                found_animals[labels[i]].append(box)
+                print(labels[i] + ': ' + str(box.classes[i] * 100) + '%')
+    return found_animals
+
+
+def classify_image(image: LoadedImage, img_path: str, yolov3: Model,
+                   animals_to_find: List[AnimalType] = ("cat", "dog"),
+                   save_bbox: bool = True) -> Dict[AnimalType, List[BoundBox]]:
+    """
+    Find specified animals in the image
+    :param image: loaded image
+    :param img_path: path to the image
+    :param yolov3: loaded Yolo v3 model
+    :param animals_to_find: list of animal types to find
+    :param save_bbox: when True, save image with detected bounding box - for debugging mainly
+    :return: map of found animals and their bounding boxes
+    """
+    # set some parameters
+    net_h, net_w = 416, 416
+    obj_thresh, nms_thresh = 0.5, 0.45
+    anchors = [[116, 90, 156, 198, 373, 326], [30, 61, 62, 45, 59, 119], [10, 13, 16, 30, 33, 23]]
+    labels = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck",
+              "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+              "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+              "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard",
+              "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+              "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana",
+              "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake",
+              "chair", "sofa", "pottedplant", "bed", "diningtable", "toilet", "tvmonitor", "laptop", "mouse",
+              "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
+              "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]
+
+    # preprocess the image
+    image_h, image_w, _ = image.shape
+    new_image = preprocess_input(image, net_h, net_w)
+    # run the prediction
+    yolos = yolov3.predict(new_image)
+    boxes = []
+
+    for i in range(len(yolos)):
+        # decode the output of the network
+        boxes += decode_netout(yolos[i][0], anchors[i], obj_thresh, nms_thresh, net_h, net_w)
+
+    # correct the sizes of the bounding boxes
+    correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w)
+    # suppress non-maximal boxes
+    do_nms(boxes, nms_thresh)
+    found_animals = find_animal(boxes, labels, obj_thresh, animals_to_find)
+
+    if save_bbox:
+        # draw bounding boxes on the image using labels
+        draw_boxes(image, boxes, labels, obj_thresh)
+        # write the image with bounding boxes to file
+        cv2.imwrite(img_path[:-4] + '_detected' + img_path[-4:], image.astype('uint8'))
+
+    return found_animals
+
+
 if __name__ == '__main__':
-    argums = ['-w', 'yolov3.weights', '-i', 'dog.jpg', '-m', 'model.h5']
+    argums = ['-w', 'yolov3.weights', '-i', 'dog.jpg', '-m', 'yolo_model.h5']
     args = argparser.parse_args(argums)
     _main_(args)
