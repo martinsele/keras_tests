@@ -88,37 +88,9 @@ class DogsProcessor(AnimalProcessorBase):
             old_name = os.path.join(old_folder, file[0][0])
             new_name = os.path.join(new_folder, file[0][0])
             if os.path.exists(old_name):
-                self.save_cropped(file[0][0], old_folder, new_folder, annot_folder)
+                self.save_cropped(file[0][0], old_folder, new_folder, annot_folder, annot_file_suffix="")
             elif not os.path.exists(new_name):
                 print('%s does not exist, it may be missing' % new_name)
-
-    @staticmethod
-    def save_cropped(file_name, old_folder, new_folder, annot_folder, image_size=AnimalProcessorBase.IMG_SIZE):
-        """
-        Crop a file according to its corresponding annotation and save it to a new folder structure
-        :param file_name:
-        :param old_folder:
-        :param new_folder:
-        :param annot_folder:
-        :param image_size:
-        """
-        old_name = os.path.join(old_folder, file_name)
-        new_name = os.path.join(new_folder, file_name)
-        annot_name = os.path.join(annot_folder, file_name.split('.')[0])
-        try:
-            image_data = misc.imread(old_name)
-            annon_xml = minidom.parse(annot_name)
-            xmin = int(annon_xml.getElementsByTagName('xmin')[0].firstChild.nodeValue)
-            ymin = int(annon_xml.getElementsByTagName('ymin')[0].firstChild.nodeValue)
-            xmax = int(annon_xml.getElementsByTagName('xmax')[0].firstChild.nodeValue)
-            ymax = int(annon_xml.getElementsByTagName('ymax')[0].firstChild.nodeValue)
-
-            new_image_data = image_data[ymin:ymax, xmin:xmax, :]
-            new_image_data = misc.imresize(new_image_data, (image_size, image_size))
-            misc.imsave(new_name, new_image_data)
-            print(f'...saving file {new_name}')
-        except IOError as e:
-            print('Could not read:', old_name, ':', e, '- it\'s ok, skipping.')
 
     def create_folders_for_processing(self):
         """

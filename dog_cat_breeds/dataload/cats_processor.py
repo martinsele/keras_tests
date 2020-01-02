@@ -4,9 +4,6 @@ from typing import Dict, List, Iterable, Tuple, DefaultDict
 
 import numpy
 import operator
-from scipy import misc
-import imageio
-from xml.dom import minidom
 
 from dataload.animal_processor_base import AnimalProcessorBase
 
@@ -154,39 +151,6 @@ class CatsProcessor(AnimalProcessorBase):
                 self.save_cropped(file, old_folder, new_folder, annot_folder)
             elif not os.path.exists(new_name):
                 print('%s does not exist, it may be missing' % new_name)
-
-    @staticmethod
-    def save_cropped(file_name, old_folder, new_folder, annot_folder, image_size=AnimalProcessorBase.IMG_SIZE):
-        """
-        Crop a file according to its corresponding annotation and save it to a new folder structure
-        :param file_name:
-        :param old_folder:
-        :param new_folder:
-        :param annot_folder:
-        :param image_size:
-        """
-        global file_num
-        old_name = os.path.join(old_folder, file_name)
-        new_name = os.path.join(new_folder, file_name)
-        annot_name = os.path.join(annot_folder, file_name.split('.')[0]) + ".xml"
-        try:
-            image_data = misc.imread(old_name)
-            if os.path.exists(annot_name):
-                annon_xml = minidom.parse(annot_name)
-                xmin = int(annon_xml.getElementsByTagName('xmin')[0].firstChild.nodeValue)
-                ymin = int(annon_xml.getElementsByTagName('ymin')[0].firstChild.nodeValue)
-                xmax = int(annon_xml.getElementsByTagName('xmax')[0].firstChild.nodeValue)
-                ymax = int(annon_xml.getElementsByTagName('ymax')[0].firstChild.nodeValue)
-                new_image_data = image_data[ymin:ymax, xmin:xmax, :]
-            else:
-                new_image_data = image_data
-            new_image_data = misc.imresize(new_image_data, (image_size, image_size))
-            imageio.imsave(new_name, new_image_data[:, :, :3])
-            file_num += 1
-            if file_num % 1000 == 0:
-                print(f'{file_num} saved files - {new_name}')
-        except IOError as e:
-            print('Could not read:', old_name, ':', e, '- it\'s ok, skipping.')
 
     def create_folders_for_processing(self):
         """

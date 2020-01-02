@@ -15,7 +15,7 @@ from dataload.cats_processor import CatsProcessor
 from dataload.dogs_processor import DogsProcessor
 from model import ModelPrep
 from dataloading import DataLoader
-from utils import AnimalType
+from utils import AnimalType, BreedName
 
 """
 The ML pipeline for classification of different animals breeds:
@@ -33,12 +33,12 @@ class CroppedImgModeler:
 
     def __init__(self, animal: AnimalType, img_size: int = AnimalProcessorBase.IMG_SIZE,
                  batch_size: int = 64, epochs: int = 10,
-                 data_dir: str = "", optimalizator='rmsprop'):
+                 data_dir: str = "", optimizer='rmsprop'):
         self.animal = animal
         self.image_size = img_size
         self.batch_size = batch_size
         self.num_epochs = epochs
-        self.optimalizator = optimalizator
+        self.optimizer = optimizer
         self.data_dir = data_dir
 
         self.img_dir = os.path.join(data_dir, "cropped")
@@ -173,6 +173,25 @@ class CroppedImgModeler:
         print(class_name)
         return y, class_name
 
+    @staticmethod
+    def predict_one_loaded(image: np.ndarray, trained_model: Model,
+                           class_names: Dict[Union[bytes, str], Any]) -> BreedName:
+        """
+        Classify a loaded and cropped image
+        :param image: image to classify
+        :param trained_model: classification model
+        :param class_names: list of labels to use
+        :return:
+            estimated BreedName
+        """
+        img_x = np.expand_dims(image, axis=0)  # add dimension for batch size
+        y = trained_model.predict(img_x, batch_size=1)
+
+        max_class_idx = y.argmax()
+        class_name = list(class_names.keys())[list(class_names.values()).index(max_class_idx)]
+        print(f"Classified: {y} : {class_name}")
+        return class_name
+
     def model_data(self, phase: str, fine_tune: bool, weights_to_load: str = ""):
         """
         Perform modeling given the assigned action
@@ -240,7 +259,7 @@ class CroppedImgModeler:
 
         print("Creating first model...")
         model = ModelPrep.create_train_model(num_of_classes, used_model=Xception,
-                                             optimizer='rmsprop', input_shape=(self.image_size, self.image_size, 3))
+                                             optimizer=self.optimizer, input_shape=(self.image_size, self.image_size, 3))
         if phase == "TRAIN":
             if not fine_tune:
                 if weights_to_load:

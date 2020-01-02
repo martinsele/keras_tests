@@ -24,7 +24,9 @@ class ClassificationResult:
         self.breed = breed
         self.animal = animal
 
-class BreedEvaluator:
+
+class FullEvaluator:
+
     animals = List[AnimalType]
     models: Dict[AnimalType, BreedPredictionUtils]
     yolo_model: Model
@@ -69,6 +71,7 @@ class BreedEvaluator:
         # pick the largest (closest) one
         picked_animal, bbox = self.select_best_animal(found_animals)
         breed = self.classify_breed(image, picked_animal, bbox)
+        return ClassificationResult(picked_animal, breed)
 
     def find_animal(self, img_path: str, image: LoadedImage) -> Dict[AnimalType, List[yolo.BoundBox]]:
         """
@@ -89,18 +92,24 @@ class BreedEvaluator:
         :param bbox: found bounding box
         :return: name of the breed of the found animal
         """
-        # TODO: finish
-        pass
+        # TODO: check image types
+        predict_utils = self.models[animal]
+        # get sub-image
+        cropped_image = image[bbox.ymin:bbox.ymax, bbox.xmin:bbox.xmax, :]
+        # pass it to the breed classifier
+        breed_name = predict_utils.breed_modeler.predict_one_loaded(cropped_image,
+                                                                    predict_utils.model, predict_utils.cls_names)
+        return breed_name
 
-    def prepare_breed_processor(self, type: AnimalType, model_file: str) -> BreedPredictionUtils:
+    def prepare_breed_processor(self, animal_type: AnimalType, model_file: str) -> BreedPredictionUtils:
         """
         Prepare breed classifier
-        :param type: Animal type
+        :param animal_type: Animal type
         :param model_file: file with model weights
         :return: Animal processor
         """
-        breed_modeler = CroppedImgModeler(type, self.img_size)
-        processor = breed_modeler.prepare_data(type,self.phase)
+        breed_modeler = CroppedImgModeler(animal_type, self.img_size)
+        processor = breed_modeler.prepare_data(animal_type, self.phase)
         model = breed_modeler.prepare_model(self.phase, processor, True, model_file)
         cls_names = breed_modeler.get_class_names()
         bpu = BreedPredictionUtils(breed_modeler, model, cls_names)
@@ -132,6 +141,7 @@ if __name__ == "__main__":
     MODEL_DIR = os.path.join(DATA_DIR, "models")
     img_to_classify = 'dog.jpg'
 
-    evaluator = BreedEvaluator(img_size=AnimalProcessorBase.IMG_SIZE, models_dir=MODEL_DIR)
+    evaluator = FullEvaluator(img_size=AnimalProcessorBase.IMG_SIZE)
     evaluator.load_models(MODEL_DIR)
-    evaluator.classify(img_to_classify)
+    result = evaluator.classify(img_to_classify)
+    print(f"Found animal {result.animal} - breed: {result.breed}")
