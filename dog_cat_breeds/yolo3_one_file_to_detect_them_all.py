@@ -13,6 +13,11 @@ import sys
 
 from utils import AnimalType, LoadedImage
 
+"""
+YOLOv3 prediction - based on post at 
+https://machinelearningmastery.com/how-to-perform-object-detection-with-yolov3-in-keras/
+YOLOv3 weights can be downloaded from https://pjreddie.com/media/files/yolov3.weights
+"""
 np.set_printoptions(threshold=sys.maxsize)
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"

@@ -46,7 +46,7 @@ class ModelPrep:
             layer.trainable = False
 
         # compile the model (should be done *after* setting layers to non-trainable)
-        model.compile(optimizer=optimizer, loss='categorical_crossentropy')
+        model.compile(optimizer=optimizer, metrics=["accuracy"], loss='categorical_crossentropy')
         return model
 
     @staticmethod
@@ -54,7 +54,7 @@ class ModelPrep:
         """
         Prepare model for fine-tuning
         :param model: model to tune
-        :param metrics: metrics to bserve
+        :param metrics: metrics to observe
         :return:
         """
         # we chose to train the top 2 inception blocks

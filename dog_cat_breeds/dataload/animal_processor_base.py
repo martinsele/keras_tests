@@ -37,8 +37,8 @@ class AnimalProcessorBase(ABC):
 
         for folder_name in os.listdir(self.data_folder):
             if "cropped" in folder_name:
-                test_f = os.listdir(self.data_folder)[0]
-                num_classes = len(os.listdir(test_f))
+                test_f = os.listdir(os.path.join(self.data_folder, folder_name))[0]
+                num_classes = len(os.listdir(os.path.join(self.data_folder, folder_name, test_f)))
                 return num_classes
         return -1
 

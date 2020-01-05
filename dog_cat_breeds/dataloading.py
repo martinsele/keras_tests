@@ -81,9 +81,7 @@ class DataPrep:
                     img_source = os.path.join(img_dir, img_name)
                     print(img_source)
                     copy(img_source, class_path)
-                    
-     
-     
+
     @staticmethod
     def create_structure_from_non_divided(img_dir, out_dir, train_num=100):
         """

@@ -10,6 +10,7 @@ import numpy as np
 
 import os.path
 
+import utils
 from dataload.animal_processor_base import AnimalProcessorBase
 from dataload.cats_processor import CatsProcessor
 from dataload.dogs_processor import DogsProcessor
@@ -45,16 +46,15 @@ class CroppedImgModeler:
         self.eval_dir = os.path.join(self.img_dir, "test")
         self.infer_dir = os.path.join(data_dir, "infer")
         self.model_dir = os.path.join(data_dir, "models")
-        self.test_dir = os.path.join(data_dir, "test")
+        os.makedirs(self.model_dir, exist_ok=True)
 
     def get_train_generators(self) -> Tuple[DirectoryIterator, DirectoryIterator]:
         """
         Get image generators from directories
-        :param data_dir: directory with the data
         :return: train and validation data generators
         """
-        train_dir = os.path.join(self.data_dir, "train")
-        valid_dir = os.path.join(self.data_dir, "valid")
+        train_dir = os.path.join(self.img_dir, "train")
+        valid_dir = os.path.join(self.img_dir, "valid")
         train_datagen = ImageDataGenerator(rescale=1. / 255, shear_range=0.1, zoom_range=0.1, horizontal_flip=True)
         valid_datagen = ImageDataGenerator(rescale=1. / 255)
 
@@ -127,22 +127,21 @@ class CroppedImgModeler:
         print("DONE train")
         return history
 
-    def evaluation(self, trained_model: Model, data_dir: str, class_names: Dict[int, str] = None) -> np.ndarray:
+    def evaluation(self, trained_model: Model, class_names: Dict[str, int] = None) -> np.ndarray:
         """
         Evaluate the trained model
         :param trained_model: trained model
-        :param data_dir: folder with the data
         :param class_names: class names to assign
         :return:
         """
         test_datagen = ImageDataGenerator(rescale=1. / 255)
-        eval_generator = test_datagen.flow_from_directory(self.test_dir, target_size=(self.image_size, self.image_size),
+        eval_generator = test_datagen.flow_from_directory(self.eval_dir, target_size=(self.image_size, self.image_size),
                                                           batch_size=self.batch_size, shuffle=False,
                                                           class_mode='categorical')
 
-        Y_pred = trained_model.predict_generator(eval_generator,
-                                                 len(class_names) * 100 // self.batch_size + 1)
-        y_pred = np.argmax(Y_pred, axis=1)
+        y_pred_all = trained_model.predict_generator(eval_generator,
+                                                     len(class_names) * 100 // self.batch_size + 1)
+        y_pred = np.argmax(y_pred_all, axis=1)
         print('Confusion Matrix')
         conf_mat = confusion_matrix(eval_generator.classes, y_pred)
         print(conf_mat)
@@ -202,7 +201,6 @@ class CroppedImgModeler:
         # -----------------------  CODE FOR TRAINING / INFERENCE
         data_processor = self.prepare_data(self.animal, phase)
         num_of_classes = data_processor.get_number_of_classes()
-
         cls_names = self.get_class_names()
 
         model = self.prepare_model(phase, data_processor, fine_tune, weights_to_load)
@@ -210,12 +208,12 @@ class CroppedImgModeler:
         if phase == "TRAIN":
             self.train_finetune(model, num_of_classes)
         elif phase == "EVAL":
-            self.evaluation(model, self.eval_dir, cls_names)
+            self.evaluation(model, cls_names)
         elif phase == "INFERE":
             img_to_predict = os.path.join(self.infer_dir, "newfoundland1.jpg")
             self.predict_one(img_to_predict, model, cls_names)
 
-    def get_class_names(self) -> Dict[Union[str, bytes], Any]:
+    def get_class_names(self) -> Dict[str, int]:
         train_generator, _ = self.get_train_generators()
         cls_names = train_generator.class_indices
         return cls_names
@@ -239,7 +237,7 @@ class CroppedImgModeler:
             exit(-1)
 
         if phase == "TRAIN":
-            if data_processor.check_folder_structure():
+            if not data_processor.check_folder_structure():
                 data_processor.create_folders_for_processing()
         return data_processor
 
@@ -259,7 +257,8 @@ class CroppedImgModeler:
 
         print("Creating first model...")
         model = ModelPrep.create_train_model(num_of_classes, used_model=Xception,
-                                             optimizer=self.optimizer, input_shape=(self.image_size, self.image_size, 3))
+                                             optimizer=self.optimizer,
+                                             input_shape=(self.image_size, self.image_size, 3))
         if phase == "TRAIN":
             if not fine_tune:
                 if weights_to_load:
@@ -278,10 +277,10 @@ class CroppedImgModeler:
 
 if __name__ == "__main__":
     # ---------------------  VARIABLE DEFINITIONS
-    animal_type = "cat"
+    animal_type = "dog"
     fine_tune_model = False
+    DATA_DIR = utils.DATA_DIRS[animal_type]
     # DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
-    DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
 
     BATCH_SIZE = 64
     EPOCHS = 15

@@ -64,7 +64,6 @@ class FullEvaluator:
         :param img_path: path to image to classify
         :return: classification result - class and image
         """
-
         image = cv2.imread(img_path)
         # find all animals in the image
         found_animals = self.find_animal(img_path, image)
