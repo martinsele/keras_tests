@@ -1,6 +1,7 @@
 import os.path
-from scipy import io, misc
-from xml.dom import minidom
+from typing import List, Optional
+
+from scipy import io
 
 from dataload.animal_processor_base import AnimalProcessorBase
 
@@ -52,11 +53,16 @@ class DogsProcessor(AnimalProcessorBase):
         :param base_folder:
         :param img_folder:
         """
-        images_folders = os.listdir(img_folder)
-        for folder in images_folders:
-            os.makedirs(os.path.join(base_folder, 'cropped', 'train', folder.split("\\")[-1]), exist_ok=True)
-            os.makedirs(os.path.join(base_folder, 'cropped', 'valid', folder.split("\\")[-1]), exist_ok=True)
-            os.makedirs(os.path.join(base_folder, 'cropped', 'test', folder.split("\\")[-1]), exist_ok=True)
+        with open(os.path.join(base_folder, 'dog_class_names.txt'), mode='wt') as classes_file:
+            images_folders = os.listdir(img_folder)
+            for folder in images_folders:
+                c_name = folder.split("\\")[-1]
+                classes_file.write(c_name + "\n")
+                os.makedirs(os.path.join(base_folder, 'cropped', 'train', c_name), exist_ok=True)
+                os.makedirs(os.path.join(base_folder, 'cropped', 'valid', c_name), exist_ok=True)
+                os.makedirs(os.path.join(base_folder, 'cropped', 'test', c_name), exist_ok=True)
+                # for full validation:
+                os.makedirs(os.path.join(base_folder, 'non-cropped-test', c_name), exist_ok=True)
 
     def read_mat_files(self, train_mat: str, test_mat: str, base_folder: str, annot_folder: str):
         """
@@ -73,8 +79,10 @@ class DogsProcessor(AnimalProcessorBase):
         self.copy_cropped_files(tst_list[1::2], old_folder, os.path.join(base_folder, 'cropped', 'test'), annot_folder)
         self.copy_cropped_files(tst_list[0::2], old_folder, os.path.join(base_folder, 'cropped', 'valid'), annot_folder)
         self.copy_cropped_files(trn_list, old_folder, os.path.join(base_folder, 'cropped', 'train'), annot_folder)
+        # for full validation:
+        self.copy_cropped_files(tst_list[1::2], old_folder, os.path.join(base_folder, 'non-cropped-test'), None)
 
-    def copy_cropped_files(self, image_list, old_folder, new_folder, annot_folder):
+    def copy_cropped_files(self, image_list: List, old_folder: str, new_folder: str, annot_folder: Optional[str]):
         """
         Crop and copy files in image_list to a new folder
         :param image_list:

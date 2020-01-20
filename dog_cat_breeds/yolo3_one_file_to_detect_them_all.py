@@ -474,13 +474,20 @@ def find_animal(boxes: List[BoundBox], labels: List[str],
     :param animals_to_find:
     :return: Map of found animal types and their bounding boxes
     """
-    found_animals = defaultdict[List]
+    found_animals = defaultdict(list)
     for box in boxes:
         for i in range(len(labels)):
-            if box.classes[i] > obj_thresh and box.classes[i] in animals_to_find:
+            if box.classes[i] > obj_thresh and labels[i] in animals_to_find:
                 found_animals[labels[i]].append(box)
                 print(labels[i] + ': ' + str(box.classes[i] * 100) + '%')
     return found_animals
+
+
+def bound_boxes(boxes: List[BoundBox]) -> List[BoundBox]:
+    for box in boxes:
+        box.xmin = max(0, box.xmin)
+        box.ymin = max(0, box.ymin)
+    return boxes
 
 
 def classify_image(image: LoadedImage, img_path: str, yolov3: Model,
@@ -525,6 +532,7 @@ def classify_image(image: LoadedImage, img_path: str, yolov3: Model,
     correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w)
     # suppress non-maximal boxes
     do_nms(boxes, nms_thresh)
+    boxes = bound_boxes(boxes)
     found_animals = find_animal(boxes, labels, obj_thresh, animals_to_find)
 
     if save_bbox:

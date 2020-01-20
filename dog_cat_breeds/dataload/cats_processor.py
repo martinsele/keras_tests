@@ -1,10 +1,11 @@
 import os.path
 from collections import defaultdict
-from typing import Dict, List, Iterable, Tuple, DefaultDict
+from typing import Dict, List, Iterable, Tuple, DefaultDict, Optional
 
 import numpy
 import operator
 
+import utils
 from dataload.animal_processor_base import AnimalProcessorBase
 
 """
@@ -50,6 +51,7 @@ class CatsProcessor(AnimalProcessorBase):
 
     def __init__(self, data_folder: str):
         self.data_folder = data_folder
+        numpy.random.seed(utils.rand_seed)
 
     @staticmethod
     def read_process_list(in_spec) -> Tuple[DefaultDict[LabelName, List[str]], DefaultDict[LabelName, int]]:
@@ -121,6 +123,9 @@ class CatsProcessor(AnimalProcessorBase):
                                     os.path.join(base_folder, "cropped", "valid", label), annot_folder)
             self.copy_cropped_files(test_files, image_folder,
                                     os.path.join(base_folder, "cropped", "test", label), annot_folder)
+            # for full validation:
+            self.copy_cropped_files(test_files, image_folder,
+                                    os.path.join(base_folder, "non-cropped-test", label), None)
 
     @staticmethod
     def create_structure(base_folder: str, labels: Iterable[LabelName]):
@@ -129,12 +134,16 @@ class CatsProcessor(AnimalProcessorBase):
         :param base_folder:
         :param labels: list of all breed labels/names
         """
-        for label in labels:
-            os.makedirs(os.path.join(base_folder, 'cropped', 'train', label), exist_ok=True)
-            os.makedirs(os.path.join(base_folder, 'cropped', 'valid', label), exist_ok=True)
-            os.makedirs(os.path.join(base_folder, 'cropped', 'test', label), exist_ok=True)
+        with open(os.path.join(base_folder, 'cat_class_names.txt'), mode='wt') as classes_file:
+            for label in labels:
+                classes_file.write(label + "\n")
+                os.makedirs(os.path.join(base_folder, 'cropped', 'train', label), exist_ok=True)
+                os.makedirs(os.path.join(base_folder, 'cropped', 'valid', label), exist_ok=True)
+                os.makedirs(os.path.join(base_folder, 'cropped', 'test', label), exist_ok=True)
+                # for full validation:
+                os.makedirs(os.path.join(base_folder, 'non-cropped-test', label), exist_ok=True)
 
-    def copy_cropped_files(self, image_list, old_folder, new_folder, annot_folder):
+    def copy_cropped_files(self, image_list: List, old_folder: str, new_folder: str, annot_folder: Optional[str]):
         """
         Crop and copy files in image_list to a new folder
         :param image_list:

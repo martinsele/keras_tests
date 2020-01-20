@@ -32,7 +32,7 @@ The ML pipeline for classification of different animals breeds:
 
 class CroppedImgModeler:
 
-    def __init__(self, animal: AnimalType, img_size: int = AnimalProcessorBase.IMG_SIZE,
+    def __init__(self, animal: AnimalType, img_size: int = utils.IMG_SIZE,
                  batch_size: int = 64, epochs: int = 10,
                  data_dir: str = "", optimizer='rmsprop'):
         self.animal = animal
@@ -154,7 +154,7 @@ class CroppedImgModeler:
 
     @staticmethod
     def predict_one(file_name: str, trained_model: Model, class_names: Dict[Union[bytes, str], Any],
-                    im_size: Tuple[int, int] = (AnimalProcessorBase.IMG_SIZE, AnimalProcessorBase.IMG_SIZE)):
+                    im_size: Tuple[int, int] = (utils.IMG_SIZE, utils.IMG_SIZE)):
         """
         Classify particular file
         :param file_name: file to classify
@@ -174,22 +174,26 @@ class CroppedImgModeler:
 
     @staticmethod
     def predict_one_loaded(image: np.ndarray, trained_model: Model,
-                           class_names: Dict[Union[bytes, str], Any]) -> BreedName:
+                           class_names: Dict[Union[bytes, str], Any],
+                           top_n: int = 3) -> Dict[BreedName, float]:
         """
         Classify a loaded and cropped image
         :param image: image to classify
         :param trained_model: classification model
         :param class_names: list of labels to use
+        :param top_n: how many of best results to return
         :return:
-            estimated BreedName
+            top N estimated BreedNames and their probability
         """
+        top_results = {}
         img_x = np.expand_dims(image, axis=0)  # add dimension for batch size
         y = trained_model.predict(img_x, batch_size=1)
 
-        max_class_idx = y.argmax()
-        class_name = list(class_names.keys())[list(class_names.values()).index(max_class_idx)]
-        print(f"Classified: {y} : {class_name}")
-        return class_name
+        max_class_idx = np.argpartition(y, -top_n)[0][-top_n:]
+        for idx in max_class_idx:
+            class_name = [cn for cn, i in class_names.items() if i == idx][0]
+            top_results[class_name] = y[0, idx]
+        return top_results
 
     def model_data(self, phase: str, fine_tune: bool, weights_to_load: str = ""):
         """
@@ -218,8 +222,7 @@ class CroppedImgModeler:
         cls_names = train_generator.class_indices
         return cls_names
 
-    @staticmethod
-    def prepare_data(animal: AnimalType, phase: str) -> AnimalProcessorBase:
+    def prepare_data(self, animal: AnimalType, phase: str) -> AnimalProcessorBase:
         """
         Prepare data structure
         :param animal: animal data to process
@@ -228,9 +231,9 @@ class CroppedImgModeler:
         """
         data_processor: Optional[AnimalProcessorBase] = None
         if animal == "cat":
-            data_processor = CatsProcessor(DATA_DIR)
+            data_processor = CatsProcessor(self.data_dir)
         elif animal == "dog":
-            data_processor = DogsProcessor(DATA_DIR)
+            data_processor = DogsProcessor(self.data_dir)
 
         if data_processor is None:
             print("Unknown animal type !")
@@ -242,21 +245,22 @@ class CroppedImgModeler:
         return data_processor
 
     def prepare_model(self, phase: str, data_processor: AnimalProcessorBase,
-                      fine_tune: bool, weights_to_load: str = "") -> Model:
+                      fine_tune: bool, weights_to_load: str = "", num_classes: int = 0) -> Model:
         """
         Prepare model given the assigned action
         :param phase: on of TRAIN, EVAL, INFER
         :param data_processor: dataset processor
         :param fine_tune: whether to fine-tune the model
         :param weights_to_load: path to weights file to load
+        :param num_classes: number of classes to predict
 
         :return prepared model with loaded weights
         """
-
-        num_of_classes = data_processor.get_number_of_classes()
+        if num_classes == 0:
+            num_classes = data_processor.get_number_of_classes()
 
         print("Creating first model...")
-        model = ModelPrep.create_train_model(num_of_classes, used_model=Xception,
+        model = ModelPrep.create_train_model(num_classes, used_model=Xception,
                                              optimizer=self.optimizer,
                                              input_shape=(self.image_size, self.image_size, 3))
         if phase == "TRAIN":
@@ -264,7 +268,7 @@ class CroppedImgModeler:
                 if weights_to_load:
                     print("loading weights")
                     self.load_weights(model, weights_to_load)
-                self.train_base(model, num_of_classes)
+                self.train_base(model, num_classes)
 
         print("Preparing model for fine tuning ...")
         # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
@@ -284,7 +288,7 @@ if __name__ == "__main__":
 
     BATCH_SIZE = 64
     EPOCHS = 15
-    img_modeler = CroppedImgModeler(animal=animal_type, img_size=AnimalProcessorBase.IMG_SIZE, data_dir=DATA_DIR,
+    img_modeler = CroppedImgModeler(animal=animal_type, img_size=utils.IMG_SIZE, data_dir=DATA_DIR,
                                     batch_size=BATCH_SIZE, epochs=EPOCHS)
 
     model_weights_file_to_load = os.path.join(img_modeler.model_dir, f"fine-model_{animal_type}" + "_06-0.28.hdf5")

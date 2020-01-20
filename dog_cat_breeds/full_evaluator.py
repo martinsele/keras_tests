@@ -3,10 +3,10 @@ import os.path
 
 import cv2
 from keras import Model
+from scipy import misc
 
 from breed_evaluator import CroppedImgModeler
-from dataload.animal_processor_base import AnimalProcessorBase
-from utils import AnimalType, LoadedImage, BreedName
+from utils import AnimalType, LoadedImage, BreedName, DATA_DIRS, NUM_CLASSES, CLASS_NAMES_FILES, IMG_SIZE, TOP_N
 import yolo3_one_file_to_detect_them_all as yolo
 
 
@@ -20,9 +20,12 @@ class BreedPredictionUtils:
 
 class ClassificationResult:
 
-    def __init__(self, animal: AnimalType, breed: str):
-        self.breed = breed
+    def __init__(self, animal: AnimalType, breeds: Dict[BreedName, float]):
+        self.breeds = breeds
         self.animal = animal
+
+    def __repr__(self):
+        return f"Animal: {self.animal} - breeds: {self.breeds}"
 
 
 class FullEvaluator:
@@ -37,40 +40,46 @@ class FullEvaluator:
         self.img_size = img_size
         self.phase = "INFERE"
 
-    def load_models(self, models_dir) -> Dict[AnimalType, BreedPredictionUtils]:
+    def load_models(self, models_dirs: List[str]) -> Dict[AnimalType, BreedPredictionUtils]:
         """
         Load trained models from files in folder,
         files follow structure as f"model_{animalType}_"+"{epoch:02d}-{val_loss:.2f}.hdf5"
-        :param models_dir: path to saved models
+        :param models_dirs: paths to saved models
 
         :return map of processors for each animal type
         """
         models = {}
-        for model_file in os.listdir(models_dir):
-            if model_file == "yolo_model.h5":
-                self.yolo_model = yolo.load_model(model_file)
-            if not model_file.endswith("hdf5"):
-                continue
-            parts = model_file.split("_")
-            a_type = parts[1]
-            breed_proc = self.prepare_breed_processor(a_type, model_file)
-            models[a_type] = breed_proc
+        for models_dir in models_dirs:
+            for model_file in os.listdir(models_dir):
+                if model_file == "yolo_model.h5":
+                    self.yolo_model = yolo.load_model(os.path.join(models_dir, model_file))
+                    continue
+                if not model_file.endswith("hdf5"):
+                    continue
+                parts = model_file.split("_")
+                a_type = str(parts[1])
+                breed_proc = self.prepare_breed_processor(a_type, os.path.join(models_dir, model_file))
+                models[a_type] = breed_proc
 
+        self.models = models
         return models
 
-    def classify(self, img_path: str) -> ClassificationResult:
+    def classify(self, img_path: str, top_n: int = 3) -> ClassificationResult:
         """
         Classify image - first find the animal in the image and then classify breed
         :param img_path: path to image to classify
+        :param top_n: number of top results to return
         :return: classification result - class and image
         """
         image = cv2.imread(img_path)
         # find all animals in the image
         found_animals = self.find_animal(img_path, image)
+        if not found_animals:
+            return ClassificationResult("nan", {"nan": 1.0})
         # pick the largest (closest) one
         picked_animal, bbox = self.select_best_animal(found_animals)
-        breed = self.classify_breed(image, picked_animal, bbox)
-        return ClassificationResult(picked_animal, breed)
+        breeds = self.classify_breed(image, picked_animal, bbox, top_n)
+        return ClassificationResult(picked_animal, breeds)
 
     def find_animal(self, img_path: str, image: LoadedImage) -> Dict[AnimalType, List[yolo.BoundBox]]:
         """
@@ -83,22 +92,24 @@ class FullEvaluator:
                                             animals_to_find=list(self.models.keys()))
         return found_animals
 
-    def classify_breed(self, image: LoadedImage, animal: AnimalType, bbox: yolo.BoundBox) -> BreedName:
+    def classify_breed(self, image: LoadedImage, animal: AnimalType, bbox: yolo.BoundBox, top_n: int) \
+            -> Dict[BreedName, float]:
         """
         Get the breed name of the found animal
         :param image: loaded image
         :param animal: animal type to classify
         :param bbox: found bounding box
-        :return: name of the breed of the found animal
+        :param top_n: number of top results to return
+        :return: top N estimated BreedNames and their probability
         """
-        # TODO: check image types
         predict_utils = self.models[animal]
         # get sub-image
         cropped_image = image[bbox.ymin:bbox.ymax, bbox.xmin:bbox.xmax, :]
+        new_image_data = misc.imresize(cropped_image, (IMG_SIZE, IMG_SIZE))
         # pass it to the breed classifier
-        breed_name = predict_utils.breed_modeler.predict_one_loaded(cropped_image,
-                                                                    predict_utils.model, predict_utils.cls_names)
-        return breed_name
+        breed_names = predict_utils.breed_modeler.predict_one_loaded(new_image_data,
+                                                                     predict_utils.model, predict_utils.cls_names)
+        return breed_names
 
     def prepare_breed_processor(self, animal_type: AnimalType, model_file: str) -> BreedPredictionUtils:
         """
@@ -109,10 +120,27 @@ class FullEvaluator:
         """
         breed_modeler = CroppedImgModeler(animal_type, self.img_size)
         processor = breed_modeler.prepare_data(animal_type, self.phase)
-        model = breed_modeler.prepare_model(self.phase, processor, True, model_file)
-        cls_names = breed_modeler.get_class_names()
+        model = breed_modeler.prepare_model(self.phase, processor, True, model_file,
+                                            num_classes=NUM_CLASSES[animal_type])
+        cls_names = self.get_class_names(animal_type)
         bpu = BreedPredictionUtils(breed_modeler, model, cls_names)
         return bpu
+
+    @staticmethod
+    def get_class_names(animal: AnimalType) -> Dict[BreedName, int]:
+        """
+        Read class names from file
+        :param animal:  animal type
+        :return: list of class names
+        """
+        num = 0
+        class_names = {}
+        file_name = CLASS_NAMES_FILES[animal]
+        with open(file_name, mode='rt') as file:
+            for line in file:
+                class_names[line] = num
+                num += 1
+        return class_names
 
     @staticmethod
     def select_best_animal(found_animals: Dict[AnimalType, List[yolo.BoundBox]]) \
@@ -136,11 +164,14 @@ class FullEvaluator:
 
 
 if __name__ == "__main__":
-    DATA_DIR = "e:\\data\\dogs_cats\\cats_dogs_breed_keggle"
-    MODEL_DIR = os.path.join(DATA_DIR, "models")
+    model_dirs = []
+    for data_dir in DATA_DIRS.values():
+        model_dirs.append(os.path.join(data_dir, "models"))
+    model_dirs.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "models"))
     img_to_classify = 'dog.jpg'
 
-    evaluator = FullEvaluator(img_size=AnimalProcessorBase.IMG_SIZE)
-    evaluator.load_models(MODEL_DIR)
-    result = evaluator.classify(img_to_classify)
-    print(f"Found animal {result.animal} - breed: {result.breed}")
+    evaluator = FullEvaluator(img_size=IMG_SIZE)
+    evaluator.load_models(model_dirs)
+    result = evaluator.classify(img_to_classify, TOP_N)
+    for res, prob in result.breeds.items():
+        print(f"Found animal {result.animal} - breed: {res} ({prob*100:.2f})")
