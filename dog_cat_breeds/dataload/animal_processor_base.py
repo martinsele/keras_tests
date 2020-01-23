@@ -25,7 +25,7 @@ class AnimalProcessorBase(ABC):
         :return: True / False
         """
         for folder_name in os.listdir(self.data_folder):
-            if "cropped" in folder_name:
+            if folder_name.startswith("cropped"):
                 return True
         return False
 

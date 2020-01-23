@@ -1,11 +1,13 @@
-from typing import Optional, Tuple, Dict, Union, Any
+from datetime import datetime
+from typing import Optional, Tuple, Dict, Union, Any, List
 
 from keras.applications.xception import Xception
-from keras.callbacks import ModelCheckpoint, EarlyStopping, History, Callback
+from keras.callbacks import ModelCheckpoint, EarlyStopping, History, Callback, TensorBoard
 from keras.models import Model
 from keras.preprocessing.image import ImageDataGenerator, DirectoryIterator
 
 from sklearn.metrics import confusion_matrix, classification_report
+import matplotlib.pyplot as plt
 import numpy as np
 
 import os.path
@@ -34,13 +36,15 @@ class CroppedImgModeler:
 
     def __init__(self, animal: AnimalType, img_size: int = utils.IMG_SIZE,
                  batch_size: int = 64, epochs: int = 10,
-                 data_dir: str = "", optimizer='rmsprop'):
+                 data_dir: str = "", optimizer='rmsprop',
+                 short_experiment: bool = False):
         self.animal = animal
         self.image_size = img_size
         self.batch_size = batch_size
         self.num_epochs = epochs
         self.optimizer = optimizer
         self.data_dir = data_dir
+        self.short_experiment = short_experiment
 
         self.img_dir = os.path.join(data_dir, "cropped")
         self.eval_dir = os.path.join(self.img_dir, "test")
@@ -70,7 +74,7 @@ class CroppedImgModeler:
                                                       class_mode='categorical')
         return train_gen, valid_gen
 
-    def get_callbacks(self) -> Tuple[Callback, ...]:
+    def get_callbacks(self) -> List[Callback]:
         """
         Prepare training callbacks
         :return tuple of training callbacks
@@ -78,7 +82,8 @@ class CroppedImgModeler:
         weights_file_path = os.path.join(self.model_dir, f"model_{self.animal}_"+"{epoch:02d}-{val_loss:.2f}.hdf5")
         checkpoint_callback = ModelCheckpoint(weights_file_path, save_best_only=True, save_weights_only=True)
         early_stop_callback = EarlyStopping(min_delta=0, patience=3, restore_best_weights=True)
-        return checkpoint_callback, early_stop_callback
+        tensorboard = TensorBoard(log_dir='./log/{}'.format(datetime.now().strftime("%Y-%m-%d-%H-%M-%S")))
+        return [checkpoint_callback, early_stop_callback, tensorboard]
 
     @staticmethod
     def load_weights(model_to_load: Model, w_path: str):
@@ -97,14 +102,20 @@ class CroppedImgModeler:
         :return: history
         """
         train_gen, validation_gen = self.get_train_generators()
-        checkpoint_callback, early_stop_callback = self.get_callbacks()
+        callbacks = self.get_callbacks()
 
         # first training
         print("First training of top layers ...")
-        history = base_model.fit_generator(train_gen, steps_per_epoch=num_classes * 200 / self.batch_size,
+
+        steps_per_epoch = num_classes * 200 / self.batch_size
+        validation_steps = num_classes * 50 / self.batch_size
+        if self.short_experiment:
+            steps_per_epoch = 10
+            validation_steps = 10
+        history = base_model.fit_generator(train_gen, steps_per_epoch=steps_per_epoch,
                                            epochs=self.num_epochs, validation_data=validation_gen,
-                                           validation_steps=num_classes * 50 / self.batch_size,
-                                           callbacks=[checkpoint_callback, early_stop_callback])
+                                           validation_steps=validation_steps,
+                                           callbacks=callbacks)
         return history
 
     def train_finetune(self, fine_model: Model, num_classes: int) -> History:
@@ -114,17 +125,22 @@ class CroppedImgModeler:
         :param num_classes:
         :return: training history
         """
-        # TODO: plot history
         train_gen, validation_gen = self.get_train_generators()
-        checkpoint_callback, early_stop_callback = self.get_callbacks()
+        callbacks = self.get_callbacks()
 
         # we train our model again (this time fine-tuning the top 2 inception blocks alongside the top Dense layers
         print("Model fine-tuning ...")
-        history = fine_model.fit_generator(train_gen, steps_per_epoch=num_classes * 200 / self.batch_size,
+        steps_per_epoch = num_classes * 200 / self.batch_size
+        validation_steps = num_classes * 50 / self.batch_size
+        if self.short_experiment:
+            steps_per_epoch = 10
+            validation_steps = 10
+        history = fine_model.fit_generator(train_gen, steps_per_epoch=steps_per_epoch,
                                            epochs=self.num_epochs, validation_data=validation_gen,
-                                           validation_steps=num_classes * 50 / self.batch_size,
-                                           callbacks=[checkpoint_callback, early_stop_callback])
+                                           validation_steps=validation_steps,
+                                           callbacks=callbacks)
         print("DONE train")
+        self.show_history(history, True)
         return history
 
     def evaluation(self, trained_model: Model, class_names: Dict[str, int] = None) -> np.ndarray:
@@ -268,7 +284,8 @@ class CroppedImgModeler:
                 if weights_to_load:
                     print("loading weights")
                     self.load_weights(model, weights_to_load)
-                self.train_base(model, num_classes)
+                history = self.train_base(model, num_classes)
+                self.show_history(history, False)
 
         print("Preparing model for fine tuning ...")
         # at this point, the top layers are well trained and we can start fine-tuning convolutional layers
@@ -278,18 +295,31 @@ class CroppedImgModeler:
             self.load_weights(model, weights_to_load)
         return model
 
+    def show_history(self, history: History, is_finetuning: bool):
+        # summarize history for loss
+        plt.figure()
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title(f'model loss: finetuning {is_finetuning}')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.draw()
+        plt.pause(0.1)
+
 
 if __name__ == "__main__":
     # ---------------------  VARIABLE DEFINITIONS
-    animal_type = "dog"
+    animal_type = "cat"
     fine_tune_model = False
     DATA_DIR = utils.DATA_DIRS[animal_type]
     # DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
 
     BATCH_SIZE = 64
-    EPOCHS = 15
+    EPOCHS = 20
     img_modeler = CroppedImgModeler(animal=animal_type, img_size=utils.IMG_SIZE, data_dir=DATA_DIR,
-                                    batch_size=BATCH_SIZE, epochs=EPOCHS)
+                                    batch_size=BATCH_SIZE, epochs=EPOCHS, short_experiment=False)
 
     model_weights_file_to_load = os.path.join(img_modeler.model_dir, f"fine-model_{animal_type}" + "_06-0.28.hdf5")
     img_modeler.model_data(phase="TRAIN", fine_tune=fine_tune_model)
+    plt.show()

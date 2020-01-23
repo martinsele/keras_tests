@@ -2,8 +2,8 @@ from typing import Tuple
 
 from keras.applications.inception_v3 import InceptionV3
 from keras.models import Model
-from keras.layers import Dense, GlobalAveragePooling2D, Dropout
-from keras.optimizers import SGD
+from keras.layers import Dense, GlobalAveragePooling2D, Dropout, Flatten
+from keras.optimizers import SGD, Adam
 
 
 # load existing model with weights, without top layers
@@ -29,11 +29,6 @@ class ModelPrep:
         # add a global spatial average pooling layer
         x = base_model.output
         x = GlobalAveragePooling2D()(x)
-        # let's add a fully-connected layer
-        x = Dense(1024, activation='relu')(x)
-        # add dropout
-        x = Dropout(0.5)(x)
-
         # and a logistic layer
         predictions = Dense(num_outputs, activation='softmax')(x)
 
@@ -57,13 +52,13 @@ class ModelPrep:
         :param metrics: metrics to observe
         :return:
         """
-        # we chose to train the top 2 inception blocks
-        for layer in model.layers[:-2]:
+        # we chose to train even the 2 top Dense layers
+        for layer in model.layers[:-3]:
             layer.trainable = False
-        for layer in model.layers[-2:]:
+        for layer in model.layers[-3:]:
             layer.trainable = True
 
         # we need to recompile the model for these modifications to take effect
         # we use SGD with a low learning rate
-        model.compile(optimizer=SGD(lr=0.0001, momentum=0.9), loss='categorical_crossentropy', metrics=metrics)
+        model.compile(optimizer=Adam(lr=0.0001), loss='categorical_crossentropy', metrics=metrics)
         return model
