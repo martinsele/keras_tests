@@ -2,7 +2,11 @@ from typing import Dict, List, Union, Any, Tuple
 import os.path
 
 import cv2
+import numpy as np
 from keras import Model
+
+from PIL import Image as pil_image
+from imageio import imread
 from scipy import misc
 
 from breed_evaluator import CroppedImgModeler
@@ -72,12 +76,18 @@ class FullEvaluator:
         :return: classification result - class and image
         """
         image = cv2.imread(img_path)
+        # img = pil_image.open(img_path)
+        # if img.mode != 'RGB':
+        #     img = img.convert('RGB')
+        # image_k = np.asarray(img, dtype='uint8')
+
         # find all animals in the image
         found_animals = self.find_animal(img_path, image)
         if not found_animals:
             return ClassificationResult("nan", {"nan": 1.0})
         # pick the largest (closest) one
         picked_animal, bbox = self.select_best_animal(found_animals)
+
         breeds = self.classify_breed(image, picked_animal, bbox, top_n)
         return ClassificationResult(picked_animal, breeds)
 
@@ -89,7 +99,7 @@ class FullEvaluator:
         :return map of found animals and their bounding boxes
         """
         found_animals = yolo.classify_image(image=image, img_path=img_path, yolov3=self.yolo_model,
-                                            animals_to_find=list(self.models.keys()))
+                                            animals_to_find=list(self.models.keys()), save_bbox=False)
         return found_animals
 
     def classify_breed(self, image: LoadedImage, animal: AnimalType, bbox: yolo.BoundBox, top_n: int) \
@@ -108,7 +118,8 @@ class FullEvaluator:
         new_image_data = misc.imresize(cropped_image, (IMG_SIZE, IMG_SIZE))
         # pass it to the breed classifier
         breed_names = predict_utils.breed_modeler.predict_one_loaded(new_image_data,
-                                                                     predict_utils.model, predict_utils.cls_names)
+                                                                     predict_utils.model, predict_utils.cls_names,
+                                                                     top_n)
         return breed_names
 
     def prepare_breed_processor(self, animal_type: AnimalType, model_file: str) -> BreedPredictionUtils:

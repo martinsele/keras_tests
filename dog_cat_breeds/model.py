@@ -53,9 +53,9 @@ class ModelPrep:
         :return:
         """
         # we chose to train even the 2 top Dense layers
-        for layer in model.layers[:-3]:
+        for layer in model.layers[:-1]:
             layer.trainable = False
-        for layer in model.layers[-3:]:
+        for layer in model.layers[-1:]:
             layer.trainable = True
 
         # we need to recompile the model for these modifications to take effect

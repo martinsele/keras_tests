@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Union, Any, List
 
+import cv2
 from keras.applications.xception import Xception
 from keras.callbacks import ModelCheckpoint, EarlyStopping, History, Callback, TensorBoard
 from keras.models import Model
@@ -52,6 +53,8 @@ class CroppedImgModeler:
         self.model_dir = os.path.join(data_dir, "models")
         os.makedirs(self.model_dir, exist_ok=True)
 
+        self.eval_datagen = ImageDataGenerator(rescale=1./255)
+
     def get_train_generators(self) -> Tuple[DirectoryIterator, DirectoryIterator]:
         """
         Get image generators from directories
@@ -59,7 +62,9 @@ class CroppedImgModeler:
         """
         train_dir = os.path.join(self.img_dir, "train")
         valid_dir = os.path.join(self.img_dir, "valid")
-        train_datagen = ImageDataGenerator(rescale=1. / 255, shear_range=0.1, zoom_range=0.1, horizontal_flip=True)
+        train_datagen = ImageDataGenerator(rescale=1. / 255, shear_range=0.1, zoom_range=0.1,
+                                           rotation_range=45, width_shift_range=0.1,
+                                           height_shift_range=0.1, horizontal_flip=True)
         valid_datagen = ImageDataGenerator(rescale=1. / 255)
 
         # Generator for training images
@@ -81,7 +86,7 @@ class CroppedImgModeler:
         """
         weights_file_path = os.path.join(self.model_dir, f"model_{self.animal}_"+"{epoch:02d}-{val_loss:.2f}.hdf5")
         checkpoint_callback = ModelCheckpoint(weights_file_path, save_best_only=True, save_weights_only=True)
-        early_stop_callback = EarlyStopping(min_delta=0, patience=3, restore_best_weights=True)
+        early_stop_callback = EarlyStopping(min_delta=0, patience=4, restore_best_weights=True)
         tensorboard = TensorBoard(log_dir='./log/{}'.format(datetime.now().strftime("%Y-%m-%d-%H-%M-%S")))
         return [checkpoint_callback, early_stop_callback, tensorboard]
 
@@ -152,11 +157,11 @@ class CroppedImgModeler:
         """
         test_datagen = ImageDataGenerator(rescale=1. / 255)
         eval_generator = test_datagen.flow_from_directory(self.eval_dir, target_size=(self.image_size, self.image_size),
-                                                          batch_size=self.batch_size, shuffle=False,
+                                                          batch_size=1, shuffle=False,
                                                           class_mode='categorical')
 
         y_pred_all = trained_model.predict_generator(eval_generator,
-                                                     len(class_names) * 100 // self.batch_size + 1)
+                                                     len(eval_generator.classes))
         y_pred = np.argmax(y_pred_all, axis=1)
         print('Confusion Matrix')
         conf_mat = confusion_matrix(eval_generator.classes, y_pred)
@@ -202,7 +207,9 @@ class CroppedImgModeler:
             top N estimated BreedNames and their probability
         """
         top_results = {}
-        img_x = np.expand_dims(image, axis=0)  # add dimension for batch size
+        image_norm = image / 255
+        img_x = np.expand_dims(image_norm, axis=0)  # add dimension for batch size
+
         y = trained_model.predict(img_x, batch_size=1)
 
         max_class_idx = np.argpartition(y, -top_n)[0][-top_n:]
@@ -314,12 +321,12 @@ if __name__ == "__main__":
     fine_tune_model = False
     DATA_DIR = utils.DATA_DIRS[animal_type]
     # DATA_DIR = "c:\\wspace_other\\keras_tests\\data\\dogs-cats"
+    weights_file = os.path.join(DATA_DIR, "models", "model_cat_04-0.62.hdf5")
 
     BATCH_SIZE = 64
     EPOCHS = 20
     img_modeler = CroppedImgModeler(animal=animal_type, img_size=utils.IMG_SIZE, data_dir=DATA_DIR,
                                     batch_size=BATCH_SIZE, epochs=EPOCHS, short_experiment=False)
 
-    model_weights_file_to_load = os.path.join(img_modeler.model_dir, f"fine-model_{animal_type}" + "_06-0.28.hdf5")
-    img_modeler.model_data(phase="TRAIN", fine_tune=fine_tune_model)
+    img_modeler.model_data(phase="EVAL", fine_tune=fine_tune_model, weights_to_load=weights_file)
     plt.show()

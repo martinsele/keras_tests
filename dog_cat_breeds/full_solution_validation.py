@@ -25,7 +25,7 @@ def eval_test_result(test_results: List[Tuple[AnimalType, AnimalType, BreedName,
     correct_dogs = 0
     correct_cats = 0
     samples = len(test_results)
-    cat_samples = sum([s for s in test_results if s[0] == "cat"])
+    cat_samples = sum([1 for s in test_results if s[0] == "cat"])
     dog_samples = samples - cat_samples
     for res in test_results:
         true_animal = res[0]
@@ -42,7 +42,7 @@ def eval_test_result(test_results: List[Tuple[AnimalType, AnimalType, BreedName,
     animal_acc = correct_animals / samples * 100
     breed_acc = correct_breeds / samples * 100
     dog_acc = correct_dogs / dog_samples * 100
-    # cat_acc = correct_cats / cat_samples * 100
+    cat_acc = correct_cats / cat_samples * 100
     print(f"Results: animal_acc: {animal_acc:.2f}, breed_acc: {breed_acc:.2f}, "
           f"dog_acc: {dog_acc:.2f}, cat_acc: {cat_acc:.2f}")
 
@@ -77,3 +77,6 @@ for animal, folder in valid_folders.items():
 # class_res = evaluator.classify(file_name, top_n=TEST_TOP_N)
 
 eval_test_result(results)
+
+
+# nejsou posunute classy< egyptmau rika british shorthair
