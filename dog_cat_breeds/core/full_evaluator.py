@@ -171,8 +171,8 @@ if __name__ == "__main__":
     model_dirs = []
     for data_dir in DATA_DIRS.values():
         model_dirs.append(os.path.join(data_dir, "models"))
-    model_dirs.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "models"))
-    img_to_classify = 'dog.jpg'
+    model_dirs.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "models"))
+    img_to_classify = os.path.join('..', 'dog.jpg')
 
     evaluator = FullEvaluator(img_size=IMG_SIZE)
     evaluator.load_models(model_dirs)
