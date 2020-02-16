@@ -6,7 +6,7 @@ from scipy import misc
 import imageio
 from xml.dom import minidom
 
-from utils import IMG_SIZE
+from core.utils import IMG_SIZE
 
 
 class AnimalProcessorBase(ABC):

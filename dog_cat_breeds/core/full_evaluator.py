@@ -2,16 +2,13 @@ from typing import Dict, List, Union, Any, Tuple
 import os.path
 
 import cv2
-import numpy as np
 from keras import Model
 
-from PIL import Image as pil_image
-from imageio import imread
 from scipy import misc
 
-from breed_evaluator import CroppedImgModeler
-from utils import AnimalType, LoadedImage, BreedName, DATA_DIRS, NUM_CLASSES, CLASS_NAMES_FILES, IMG_SIZE, TOP_N
-import yolo3_one_file_to_detect_them_all as yolo
+from core.breed_evaluator import CroppedImgModeler
+from core.utils import AnimalType, LoadedImage, BreedName, DATA_DIRS, NUM_CLASSES, CLASS_NAMES_FILES, IMG_SIZE, TOP_N
+from core import yolo3_one_file_to_detect_them_all as yolo
 
 
 class BreedPredictionUtils:
@@ -76,10 +73,6 @@ class FullEvaluator:
         :return: classification result - class and image
         """
         image = cv2.imread(img_path)
-        # img = pil_image.open(img_path)
-        # if img.mode != 'RGB':
-        #     img = img.convert('RGB')
-        # image_k = np.asarray(img, dtype='uint8')
 
         # find all animals in the image
         found_animals = self.find_animal(img_path, image)

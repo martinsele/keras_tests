@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Union, Any, List
 
-import cv2
 from keras.applications.xception import Xception
 from keras.callbacks import ModelCheckpoint, EarlyStopping, History, Callback, TensorBoard
 from keras.models import Model
@@ -13,13 +12,13 @@ import numpy as np
 
 import os.path
 
-import utils
+from core import utils
 from dataload.animal_processor_base import AnimalProcessorBase
 from dataload.cats_processor import CatsProcessor
 from dataload.dogs_processor import DogsProcessor
-from model import ModelPrep
+from core.model import ModelPrep
 from dataloading import DataLoader
-from utils import AnimalType, BreedName
+from core.utils import AnimalType, BreedName
 
 """
 The ML pipeline for classification of different animals breeds:

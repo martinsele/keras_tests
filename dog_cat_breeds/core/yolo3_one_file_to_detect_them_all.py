@@ -11,7 +11,7 @@ import struct
 import cv2
 import sys
 
-from utils import AnimalType, LoadedImage
+from core.utils import AnimalType, LoadedImage
 
 """
 YOLOv3 prediction - based on post at 

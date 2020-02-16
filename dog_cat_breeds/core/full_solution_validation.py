@@ -1,10 +1,10 @@
 from typing import Dict, List, Tuple
 
-import utils
+from core import utils
 import os.path
 
-from full_evaluator import FullEvaluator
-from utils import AnimalType, BreedName
+from core.full_evaluator import FullEvaluator
+from core.utils import AnimalType, BreedName
 
 TEST_TOP_N = 3
 cat = "cat"
@@ -53,7 +53,7 @@ results: List[Tuple[AnimalType, AnimalType, BreedName, List[BreedName]]] = []
 model_dirs = []
 for data_dir in utils.DATA_DIRS.values():
     model_dirs.append(os.path.join(data_dir, "models"))
-model_dirs.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "models"))
+model_dirs.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "models"))
 
 evaluator = FullEvaluator(img_size=utils.IMG_SIZE)
 evaluator.load_models(model_dirs)
@@ -62,14 +62,22 @@ evaluator.load_models(model_dirs)
 for animal, folder in valid_folders.items():
     animal_true = animal
     print(f"Animal {animal}")
+    breed_num = 0
     for breed_folder in os.listdir(folder):
+        if breed_num > 2:
+            break
+        breed_num += 1
         print(f"Breed {breed_folder}")
         breed_true = breed_folder
+        sample_num = 0
         for sample in os.listdir(os.path.join(folder, breed_folder)):
+            if sample_num > 2:
+                break
+            sample_num += 1
             file_name = os.path.join(folder, breed_folder, sample)
             class_res = evaluator.classify(file_name, top_n=TEST_TOP_N)
             print(f"{sample}: {class_res}")
-            test_res = (animal_true, class_res.animal, breed_true, [breed[0] for breed in class_res.breeds])
+            test_res = (animal_true, class_res.animal, breed_true, [breed.rstrip() for breed in class_res.breeds])
             results.append(test_res)
 
 
@@ -77,6 +85,3 @@ for animal, folder in valid_folders.items():
 # class_res = evaluator.classify(file_name, top_n=TEST_TOP_N)
 
 eval_test_result(results)
-
-
-# nejsou posunute classy< egyptmau rika british shorthair

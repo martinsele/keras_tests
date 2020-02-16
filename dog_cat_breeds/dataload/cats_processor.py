@@ -5,7 +5,7 @@ from typing import Dict, List, Iterable, Tuple, DefaultDict, Optional
 import numpy
 import operator
 
-import utils
+from core import utils
 from dataload.animal_processor_base import AnimalProcessorBase
 
 """
