@@ -21,9 +21,10 @@ class BreedPredictionUtils:
 
 class ClassificationResult:
 
-    def __init__(self, animal: AnimalType, breeds: Dict[BreedName, float]):
+    def __init__(self, animal: AnimalType, breeds: Dict[BreedName, float], bound_box=None):
         self.breeds = breeds
         self.animal = animal
+        self.box = bound_box
 
     def __repr__(self):
         return f"Animal: {self.animal} - breeds: {self.breeds}"
@@ -82,7 +83,7 @@ class FullEvaluator:
         picked_animal, bbox = self.select_best_animal(found_animals)
 
         breeds = self.classify_breed(image, picked_animal, bbox, top_n)
-        return ClassificationResult(picked_animal, breeds)
+        return ClassificationResult(picked_animal, breeds, bbox)
 
     def find_animal(self, img_path: str, image: LoadedImage) -> Dict[AnimalType, List[yolo.BoundBox]]:
         """

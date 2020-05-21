@@ -409,6 +409,19 @@ def draw_boxes(image, boxes, labels, obj_thresh):
     return image
 
 
+def draw_and_save(image, box, label, image_path):
+    """Draw the bounding box with found animal name and save it into file."""
+    cv2.rectangle(image, (box.xmin, box.ymin), (box.xmax, box.ymax), (0, 255, 0), 3)
+    cv2.putText(image,
+                label + ' ' + str(box.get_score()),
+                (box.xmin, box.ymin - 13),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1e-3 * image.shape[0],
+                (0, 255, 0), 2)
+
+    cv2.imwrite(image_path[:-4] + '_detected' + image_path[-4:], image.astype('uint8'))
+
+
 def _main_(in_args):
     weights_path = in_args.weights
     image_path = in_args.image

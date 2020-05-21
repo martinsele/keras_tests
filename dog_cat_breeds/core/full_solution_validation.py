@@ -1,14 +1,18 @@
 from typing import Dict, List, Tuple
 
+import cv2
+
 from core import utils
 import os.path
 
+from core import yolo3_one_file_to_detect_them_all as yolo
 from core.full_evaluator import FullEvaluator
 from core.utils import AnimalType, BreedName
 
 TEST_TOP_N = 3
 cat = "cat"
 dog = "dog"
+show_results = False
 # TODO: need non-cropped images for overall validation (same original files as the cropped ones)
 valid_folders: Dict[AnimalType, str] = {cat: os.path.join(utils.DATA_DIRS[cat], "non-cropped-test"),
                                         dog: os.path.join(utils.DATA_DIRS[dog], "non-cropped-test")}
@@ -64,20 +68,32 @@ for animal, folder in valid_folders.items():
     print(f"Animal {animal}")
     breed_num = 0
     for breed_folder in os.listdir(folder):
-        if breed_num > 2:
+
+        if breed_num > 20:
             break
+
         breed_num += 1
         print(f"Breed {breed_folder}")
         breed_true = breed_folder
         sample_num = 0
         for sample in os.listdir(os.path.join(folder, breed_folder)):
-            if sample_num > 2:
+
+            if sample_num > 2:  # limit evaluated files for testing purposes
                 break
+
             sample_num += 1
             file_name = os.path.join(folder, breed_folder, sample)
             class_res = evaluator.classify(file_name, top_n=TEST_TOP_N)
+
+            if show_results and class_res.box:
+                image = cv2.imread(file_name)
+                max_label = max(class_res.breeds, key=class_res.breeds.get)
+                yolo.draw_and_save(image, class_res.box, f"{class_res.animal}/{max_label}", file_name)
+                print(f"Processed file: {file_name}")
+
             print(f"{sample}: {class_res}")
             test_res = (animal_true, class_res.animal, breed_true, [breed.rstrip() for breed in class_res.breeds])
+
             results.append(test_res)
 
 
