@@ -12,6 +12,21 @@ The actual solution works in 2 steps:
 Each of these classifiers is based on the Xception [2] model pretrained on the Imagenet [3] was fine-tuned on datasets with cat and dog breeds.
 The system can be directly deployed. When the `FullEvaluator` started, it can automatically load the saved models - animal detector and breed classifiers - and is prepared to classify images it is given.
 
+## Some Results
+Correct classifications: 
+<tr>
+    <td> <img src="dog_cat_breeds/results/Bengal_110_detected.jpg" alt="Drawing" style="width: 100px;"/> </td>
+    <td> <img src="dog_cat_breeds/results/wolker_hound_1412_detected.jpg" alt="Drawing" style="width: 150px;"/> </td>
+    <td> <img src="dog_cat_breeds/results/bloodhound_10309_detected.jpg" alt="Drawing" style="width: 150px;"/> </td>
+</tr>
+
+Incorrect classifications: 
+<tr>
+    <td> <img src="dog_cat_breeds/results/Bengal_101_detected_wrongEgypt.jpg" alt="Drawing" style="width: 250px;"/> </td>
+    <td> <img src="dog_cat_breeds/results/Birman_125_detected_wrongRagdoll.jpg" alt="Drawing" style="width: 250px;"/> </td>
+</tr>
+
+![Cat1](dog_cat_breeds/results/Bengal_101_detected_wrongEgypt.jpg)|![Dog1](dog_cat_breeds/results/Birman_125_detected_wrongRagdoll.jpg))
 
 [1] Redmon, J. and Farhadi, A., 2018. Yolov3: An incremental improvement. arXiv preprint arXiv:1804.02767.
 
