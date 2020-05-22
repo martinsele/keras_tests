@@ -26,8 +26,6 @@ Incorrect classifications:
     <td> <img src="dog_cat_breeds/results/Birman_125_detected_wrongRagdoll.jpg" alt="Drawing" style="width: 250px;"/> </td>
 </tr>
 
-![Cat1](dog_cat_breeds/results/Bengal_101_detected_wrongEgypt.jpg)|![Dog1](dog_cat_breeds/results/Birman_125_detected_wrongRagdoll.jpg))
-
 [1] Redmon, J. and Farhadi, A., 2018. Yolov3: An incremental improvement. arXiv preprint arXiv:1804.02767.
 
 [2] Chollet, F., 2017. Xception: Deep learning with depthwise separable convolutions. In Proceedings of the IEEE conference on computer vision and pattern recognition (pp. 1251-1258).
